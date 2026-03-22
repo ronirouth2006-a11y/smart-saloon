@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Salon Map Navigation</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"/>
+
+<style>
+body{
+margin:0;
+font-family:Segoe UI;
+}
+
+#map{
+height:100vh;
+width:100%;
+}
+</style>
+
+</head>
+
+<body>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+<script>
+
+const map = L.map('map').setView([22.5726,88.3639],13);
+let userLocation = null;
+let routingControl = null;
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+if(navigator.geolocation){
+
+navigator.geolocation.getCurrentPosition(async(pos)=>{
+
+userLocation = L.latLng(pos.coords.latitude,pos.coords.longitude);
+
+map.setView(userLocation,15);
+
+L.marker(userLocation).addTo(map)
+.bindPopup("You are here")
+.openPopup();
+
+loadSalons();
+
+});
+
+}
+
+async function loadSalons(){
+
+const res = await fetch("http://127.0.0.1:8000/public/salons/nearby?user_lat="+userLocation.lat+"&user_lon="+userLocation.lng);
+const salons = await res.json();
+
+salons.forEach(salon=>{
+
+const marker = L.marker([salon.latitude,salon.longitude]).addTo(map);
+
+marker.bindPopup(`
+<b>${salon.name}</b><br>
+People: ${salon.current_count}<br>
+Wait: ${salon.wait_time} min<br>
+<button onclick="showRoute(${salon.latitude},${salon.longitude})">
+Navigate
+</button>
+`);
+
+});
+
+}
+
+function showRoute(lat,lon){
+
+if(routingControl){
+map.removeControl(routingControl);
+}
+
+routingControl = L.Routing.control({
+
+waypoints:[
+userLocation,
+L.latLng(lat,lon)
+],
+
+routeWhileDragging:false
+
+}).addTo(map);
+
+}
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Salon | Live Tracking Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #f4f4f4; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+        
+
+        .search-box {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            z-index: 1000; background: white; padding: 10px 20px; border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 80%; max-width: 400px; display: flex;
+        }
+        .search-box input { border: none; outline: none; flex: 1; font-size: 16px; }
+
+        
+        .bottom-card {
+            position: absolute; bottom: -100%; left: 0; right: 0;
+            background: white; z-index: 1001; transition: 0.5s;
+            padding: 20px; border-radius: 20px 20px 0 0;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.1); text-align: center;
+        }
+        .bottom-card.active { bottom: 0; }
+        .info-row { display: flex; justify-content: space-around; margin: 15px 0; border-top: 1px solid #eee; padding-top: 15px; }
+        .book-btn { background: #f1c40f; color: black; border: none; padding: 15px; width: 100%; border-radius: 12px; font-weight: bold; font-size: 18px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div class="search-box">
+    <input type="text" placeholder="আপনার লোকেশন বা সেলুন খুঁজুন...">
+</div>
+
+<div id="map"></div>
+
+<div class="bottom-card" id="salon-card">
+    <div style="width: 40px; height: 5px; background: #ccc; margin: 0 auto 15px; border-radius: 5px;"></div>
+    <h2 id="card-name" style="margin: 0;">সেলুনের নাম</h2>
+    <div class="info-row">
+        <div><i class="fas fa-walking"></i> <span id="card-dist">0.0 km</span></div>
+        <div><i class="fas fa-clock"></i> <span id="card-time">0 mins</span></div>
+        <div><i class="fas fa-users"></i> <span id="card-people">0 জন</span></div>
+    </div>
+    <button class="book-btn">অ্যাপয়েন্টমেন্ট বুক করুন</button>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+<script>
+    const map = L.map('map').setView([22.5726, 88.3639], 13);
+    let userLoc = null;
+    let routing = null;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+            userLoc = L.latLng(pos.coords.latitude, pos.coords.longitude);
+            map.setView(userLoc, 15);
+            L.circle(userLoc, {radius: 30, color: 'blue', fillOpacity: 0.5}).addTo(map);
+            loadSalons();
+        });
+    }
+
+
+    async function loadSalons() {
+        const res = await fetch('http://127.0.0.1:8000/debug-db');
+        const data = await res.json();
+
+        data.forEach(s => {
+            if (s.latitude && s.longitude) {
+                const salonPos = L.latLng(s.latitude, s.longitude);
+                const marker = L.marker(salonPos).addTo(map);
+
+                marker.on('click', () => {
+                    drawRoute(salonPos, s);
+                });
+            }
+        });
+    }
+
+    // ৩. বোল্ড লাইন (Route) আঁকা
+    function drawRoute(dest, info) {
+        if (routing) map.removeControl(routing);
+
+        routing = L.Routing.control({
+            waypoints: [userLoc, dest],
+            routeWhileDragging: false,
+            lineOptions: { styles: [{ color: '#3498db', weight: 7, opacity: 0.8 }] },
+            createMarker: () => null 
+        }).on('routesfound', function(e) {
+            const routes = e.routes[0];
+            const dist = (routes.summary.totalDistance / 1000).toFixed(1);
+            const time = Math.round(routes.summary.totalTime / 60);
+
+            
+            document.getElementById('salon-card').classList.add('active');
+            document.getElementById('card-name').innerText = "সেলুন আইডি: " + info.saloon_id;
+            document.getElementById('card-dist').innerText = dist + " কিমি";
+            document.getElementById('card-time').innerText = time + " মিনিট";
+            document.getElementById('card-people').innerText = info.current_count + " জন";
+        }).addTo(map);
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <title>Salon Owner Dashboard | Smart Salon</title>
+    <style>
+        :root { --primary: #3498db; --success: #2ecc71; --danger: #e74c3c; --bg: #121212; --card: #1e1e1e; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; display: flex; }
+        .sidebar { width: 260px; background: var(--card); height: 100vh; padding: 25px; box-shadow: 2px 0 10px rgba(0,0,0,0.5); display: flex; flex-direction: column; }
+        .main-content { flex: 1; padding: 40px; }
+        .card-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 25px; }
+        .stat-card { background: #252525; padding: 25px; border-radius: 12px; text-align: center; border-bottom: 4px solid var(--primary); transition: 0.3s; }
+        .stat-card:hover { transform: translateY(-5px); }
+        .btn-toggle { padding: 16px; font-size: 16px; border-radius: 8px; cursor: pointer; width: 100%; border: none; margin-top: auto; font-weight: bold; transition: 0.3s; }
+        .open { background: var(--success); color: white; }
+        .close { background: var(--danger); color: white; }
+        .live-count { font-size: 54px; font-weight: 800; color: #f1c40f; line-height: 1; margin: 15px 0; }
+        .logout-btn { background: transparent; color: #888; border: 1px solid #333; padding: 8px; margin-top: 15px; cursor: pointer; border-radius: 5px; }
+        .logout-btn:hover { color: white; border-color: var(--danger); }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>Smart Salon Panel</h2>
+    <hr style="border: 0.5px solid #333; width: 100%;">
+    <p style="color: #888; font-size: 14px;">লগইন করা আছেন:</p>
+    <b id="owner-email" style="color: var(--success); word-break: break-all;">Loading...</b>
+    
+    <button class="logout-btn" onclick="logout()">লগ আউট</button>
+    <button class="btn-toggle" id="toggle-btn" onclick="toggleShop()">প্রসেসিং...</button>
+</div>
+
+<div class="main-content">
+    <h1>দোকান ড্যাশবোর্ড</h1>
+    
+    <div class="card-grid">
+        <div class="stat-card">
+            <h3>লাইভ ক্রাউড (AI ক্যামেরা)</h3>
+            <div class="live-count" id="live-people">0</div>
+            <p id="live-status" style="color: #aaa; font-size: 13px;">Checking update time...</p>
+        </div>
+        
+        <div class="stat-card" style="border-bottom-color: var(--success);">
+            <h3>আজকের মোট কাস্টমার</h3>
+            <div class="live-count" id="total-customers" style="color: var(--success);">0</div>
+            <p style="color: #aaa; font-size: 13px;">Analytics Report</p>
+        </div>
+        
+        <div class="stat-card" style="border-bottom-color: #f1c40f;">
+            <h3>ব্যস্ত সময় (Peak)</h3>
+            <div id="peak-hour" style="font-size: 32px; font-weight: bold; margin: 20px 0; color: #f1c40f;">N/A</div>
+            <p style="color: #aaa; font-size: 13px;">Peak Traffic Hour</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // LocalStorage থেকে ডাটা সংগ্রহ
+    const token = localStorage.getItem('access_token');
+    const salonId = localStorage.getItem('salon_id');
+    const ownerEmail = localStorage.getItem('owner_email');
+
+    // সিকিউরিটি চেক: টোকেন না থাকলে লগইন পেজে পাঠান
+    if (!token) {
+        window.location.href = "login.html";
+    }
+
+    document.getElementById('owner-email').innerText = ownerEmail || "Owner";
+
+    let isShopActive = false;
+
+    // ১. দোকানের স্ট্যাটাস পরিবর্তন (Open/Close)
+    async function toggleShop() {
+        const nextStatus = !isShopActive;
+        try {
+            const res = await fetch('http://127.0.0.1:8000/owner/toggle-status', {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}` // auth.py এর Bearer টোকেন
+                },
+                body: JSON.stringify({ is_active: nextStatus })
+            });
+
+            if (res.ok) {
+                isShopActive = nextStatus;
+                updateUI();
+            } else {
+                alert("স্ট্যাটাস আপডেট করা যায়নি। আবার লগইন করুন।");
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }
+
+    function updateUI() {
+        const btn = document.getElementById('toggle-btn');
+        btn.innerText = isShopActive ? "🔴 CLOSE SHOP" : "🟢 OPEN SHOP";
+        btn.className = isShopActive ? "btn-toggle close" : "btn-toggle open";
+    }
+
+    // ২. লাইভ ডাটা ও এনালিটিক্স রিফ্রেশ করা
+    async function refreshData() {
+        try {
+            // আপনার IST যুক্ত মেইন এপিআই থেকে ডাটা নেওয়া
+            const statusRes = await fetch('http://127.0.0.1:8000/debug-db');
+            const data = await statusRes.json();
+            
+            // এই মালিকের নির্দিষ্ট দোকানটি খুঁজে বের করা
+            const mySalon = data.find(s => s.salon_name === localStorage.getItem('salon_name'));
+
+            if (mySalon) {
+                document.getElementById('live-people').innerText = mySalon.current_count;
+                document.getElementById('live-status').innerText = `সর্বশেষ আপডেট: ${mySalon.updated_at}`; // IST সময়
+            }
+
+            // এনালিটিক্স ডাটা (আজকের মোট কাস্টমার)
+            const analyticsRes = await fetch(`http://127.0.0.1:8000/owner/analytics/${salonId}`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const analyticsData = await analyticsRes.json();
+            document.getElementById('total-customers').innerText = analyticsData.total_customers;
+            document.getElementById('peak-hour').innerText = analyticsData.peak_hour;
+
+        } catch (error) {
+            console.error("ডাটা আপডেট এরর:", error);
+        }
+    }
+
+    function logout() {
+        localStorage.clear();
+        window.location.href = "login.html";
+    }
+
+    // শুরুতে ডাটা লোড করা
+    updateUI();
+    refreshData();
+    // প্রতি ৫ সেকেন্ড পর পর ক্যামেরা ডাটা সিঙ্ক হবে
+    setInterval(refreshData, 5000); 
+</script>
+
+</body>
+</html>

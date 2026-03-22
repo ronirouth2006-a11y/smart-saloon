@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+    <title>Live Salon Tracking</title>
+
+```
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+
+<style>
+    body {
+        margin: 0;
+        font-family: Arial;
+        background: #121212;
+        color: white;
+    }
+
+    .top-card {
+        padding: 20px;
+        background: linear-gradient(135deg, #3498db, #2ecc71);
+    }
+
+    #map {
+        height: 70vh;
+    }
+
+    .info {
+        padding: 15px;
+        font-size: 18px;
+    }
+</style>
+```
+
+</head>
+
+<body>
+
+<div class="top-card">
+    <h2>🚀 Live Salon Route</h2>
+    <p id="status">Calculating...</p>
+</div>
+
+<div id="map"></div>
+
+<div class="info">
+    <p id="distance"></p>
+    <p id="eta"></p>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
+
+<script>
+
+const params = new URLSearchParams(window.location.search);
+const salonLat = parseFloat(params.get("lat"));
+const salonLon = parseFloat(params.get("lon"));
+const salonName = params.get("name");
+
+navigator.geolocation.getCurrentPosition((pos) => {
+
+    let userLat = pos.coords.latitude;
+    let userLon = pos.coords.longitude;
+
+    const map = L.map('map').setView([userLat, userLon], 14);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+    const userMarker = L.marker([userLat, userLon]).addTo(map)
+        .bindPopup("📍 You");
+
+    const salonMarker = L.marker([salonLat, salonLon]).addTo(map)
+        .bindPopup("🏪 " + salonName);
+
+    // 🚀 ROUTING
+    const route = L.Routing.control({
+        waypoints: [
+            L.latLng(userLat, userLon),
+            L.latLng(salonLat, salonLon)
+        ],
+        routeWhileDragging: false
+    }).addTo(map);
+
+    route.on('routesfound', function(e) {
+        const summary = e.routes[0].summary;
+
+        const distanceKm = (summary.totalDistance / 1000).toFixed(2);
+        const timeMin = Math.round(summary.totalTime / 60);
+
+        document.getElementById("distance").innerText = "📏 Distance: " + distanceKm + " km";
+        document.getElementById("eta").innerText = "⏱ ETA: " + timeMin + " mins";
+        document.getElementById("status").innerText = "Route to " + salonName;
+    });
+
+    // 🔥 LIVE MOVEMENT (SIMULATION)
+    let step = 0;
+
+    setInterval(() => {
+        userLat += 0.0001;
+        userLon += 0.0001;
+
+        userMarker.setLatLng([userLat, userLon]);
+    }, 2000);
+
+});
+
+</script>
+
+</body>
+</html>

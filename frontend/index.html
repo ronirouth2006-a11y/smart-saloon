@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Nearby Salons | Smart Salon</title>
+
+<style>
+
+:root{
+--primary:#2ecc71;
+--dark-bg:#121212;
+--card-bg:#1e1e1e;
+}
+
+body{
+font-family:'Segoe UI',sans-serif;
+background:var(--dark-bg);
+color:white;
+text-align:center;
+margin:0;
+padding:20px;
+}
+
+header{
+margin-bottom:40px;
+}
+
+h1{
+font-size:2.5rem;
+}
+
+.subtitle{
+color:#aaa;
+}
+
+.salon-container{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+gap:25px;
+max-width:1100px;
+margin:auto;
+}
+
+.salon-card{
+background:var(--card-bg);
+border-radius:20px;
+padding:25px;
+border:1px solid #333;
+transition:0.3s;
+}
+
+.salon-card:hover{
+transform:translateY(-8px);
+border-color:var(--primary);
+}
+
+.salon-title{
+font-size:1.4rem;
+font-weight:bold;
+}
+
+.status-badge{
+padding:6px 12px;
+border-radius:50px;
+font-size:12px;
+border:1px solid;
+}
+
+.live-count{
+font-size:40px;
+font-weight:bold;
+margin-top:10px;
+}
+
+.loader{
+border:4px solid #333;
+border-top:4px solid var(--primary);
+border-radius:50%;
+width:40px;
+height:40px;
+animation:spin 1s linear infinite;
+margin:50px auto;
+}
+
+@keyframes spin{
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
+}
+
+.error{
+color:red;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<header>
+<h1>📍 Nearby Salons</h1>
+<p class="subtitle">Find least crowded salon near you</p>
+</header>
+
+<div id="salon-list">
+<div class="loader"></div>
+<p>Loading salons...</p>
+</div>
+
+<script>
+
+async function fetchSalons(){
+
+if(!navigator.geolocation){
+alert("Geolocation not supported");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(async(pos)=>{
+
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
+
+try{
+
+const res=await fetch(`http://127.0.0.1:8000/public/salons/nearby?user_lat=${lat}&user_lon=${lon}`);
+const data=await res.json();
+
+const container=document.getElementById('salon-list');
+container.innerHTML='';
+
+if(data.length===0){
+container.innerHTML="<p>No salons nearby 😢</p>";
+return;
+}
+
+const grid=document.createElement('div');
+grid.className="salon-container";
+
+data.forEach((saloon,index)=>{
+
+let color="#2ecc71";
+
+if(saloon.status==="MEDIUM") color="orange";
+if(saloon.status==="BUSY") color="red";
+
+let best=index===0?"🔥 Best Choice":"";
+
+const card=document.createElement('div');
+card.className='salon-card';
+
+card.innerHTML=`
+
+<div style="display:flex;justify-content:space-between;align-items:center;">
+<h2 class="salon-title">${saloon.name} ${best}</h2>
+
+<span class="status-badge" style="color:${color};border-color:${color};background:${color}20">
+● ${saloon.status}
+</span>
+</div>
+
+<div class="live-count" style="color:${color}">
+${saloon.current_count}
+</div>
+
+<p>👥 People inside</p>
+
+<p style="color:#3498db;">
+📏 Distance: ${saloon.distance} km
+</p>
+
+<p style="color:#aaa;">
+⏱️ Wait Time: ${saloon.wait_time} min
+</p>
+
+`;
+
+grid.appendChild(card);
+
+});
+
+container.appendChild(grid);
+
+}catch(error){
+
+console.error(error);
+
+document.getElementById('salon-list').innerHTML=
+"<p class='error'>Server error ❌</p>";
+
+}
+
+},()=>{
+
+alert("Please allow location access ⚠");
+
+});
+
+}
+
+fetchSalons();
+
+setInterval(fetchSalons,5000);
+
+</script>
+
+</body>
+</html>
