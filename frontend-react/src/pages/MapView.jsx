@@ -3,7 +3,9 @@ import { RefreshCw, Users, Clock, Navigation, Heart } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTranslation } from 'react-i18next';
 import api from '../api';
+import { formatLocalNum, formatLocalTime } from '../utils/locale';
 
 // Fix for default Leaflet markers in React
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -26,6 +28,7 @@ function ChangeView({ center }) {
 }
 
 export default function MapView() {
+  const { t, i18n } = useTranslation();
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState('');
@@ -242,25 +245,25 @@ export default function MapView() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
                     <Navigation size={16} />
-                    <span>{salon.distance} km away</span>
+                    <span>{t('distance_km', { dist: formatLocalNum(salon.distance, i18n.language) })}</span>
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                     <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
                       <Users size={24} style={{ color: 'var(--primary)', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{salon.current_count}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Current Occupancy</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{formatLocalNum(salon.current_count, i18n.language)}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('current_crowd')}</div>
                     </div>
                     
                     <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
                       <Clock size={24} style={{ color: 'var(--accent)', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{salon.wait_time}m</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Estimated Wait</div>
+                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{t('wait_time', { time: formatLocalNum(salon.wait_time, i18n.language) })}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('predicted_wait')}</div>
                     </div>
                   </div>
 
                   <div style={{ marginTop: '1rem', borderTop: '1px solid var(--panel-border)', paddingTop: '0.75rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    Live Camera Update: <span style={{ color: 'var(--text-main)', fontWeight: 'bold' }}>{salon.updated_at || 'Just now'}</span>
+                    {t('last_updated', { time: formatLocalTime(salon.updated_at || 'Just now', i18n.language) })}
                   </div>
                 </div>
               );

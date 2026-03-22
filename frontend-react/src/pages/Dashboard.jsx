@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Power, LogOut, Activity, TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
+import { Power, LogOut, Activity, TrendingUp, BarChart as BarChartIcon, Download } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { QRCodeSVG } from 'qrcode.react';
+import * as htmlToImage from 'html-to-image';
 import api from '../api';
 
 export default function Dashboard() {
@@ -10,6 +12,9 @@ export default function Dashboard() {
   const [hourlyData, setHourlyData] = useState([]);
   const [dailyData, setDailyData] = useState([]);
   const navigate = useNavigate();
+
+  // The active salon ID from the owner session
+  const activeSalonId = localStorage.getItem('owner') ? JSON.parse(localStorage.getItem('owner')).id || 1 : 1;
 
   useEffect(() => {
     const ownerStr = localStorage.getItem('owner');
@@ -37,24 +42,34 @@ export default function Dashboard() {
         const owner = JSON.parse(ownerStr);
         const salonId = owner.id || 1; 
         
-        // This toggles status based on existing schema
-        await api.put(`/owner/toggle-status`, {
-          is_active: !isActive
-        });
-        
+        await api.put(`/owner/toggle-status`, { is_active: !isActive });
         setIsActive(!isActive);
       }
     } catch (err) {
-      console.error(err);
-      alert('Failed to update status');
+        console.error(err);
+        alert('Failed to update status');
     } finally {
-      setLoading(false);
+        setLoading(false);
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem('owner');
     navigate('/owner/login');
+  };
+
+  const downloadQRCode = () => {
+    const node = document.getElementById('qr-scan-container');
+    if (!node) return;
+    
+    htmlToImage.toPng(node)
+      .then((dataUrl) => {
+        const link = document.createElement('a');
+        link.download = `smart-saloon-qr-${activeSalonId}.png`;
+        link.href = dataUrl;
+        link.click();
+      })
+      .catch((err) => console.error('QR Download Failed', err));
   };
 
   return (
@@ -67,6 +82,49 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {/* Marketing Kit Section */}
+        <div style={{ 
+          background: 'rgba(0,0,0,0.2)', 
+          padding: '2rem', 
+          borderRadius: '12px',
+          border: '1px solid var(--panel-border)',
+          marginBottom: '2rem',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center'
+        }}>
+          <h3 className="mb-2 text-gradient">Marketing Kit: QR Engine</h3>
+          <p className="text-muted mb-4 text-center">Print this code and place it on your window. Customers scan it with their phone to join the waitlist instantly without an app.</p>
+          
+          <div 
+            id="qr-scan-container" 
+            style={{ 
+              background: '#ffffff', 
+              padding: '2rem', 
+              borderRadius: '16px', 
+              display: 'inline-flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+              marginBottom: '1.5rem'
+            }}
+          >
+            <QRCodeSVG 
+              value={`https://smart-saloon.vercel.app/salons/${activeSalonId}`} 
+              size={220}
+              fgColor="#2ecc71"
+              level="H"
+            />
+            <h4 style={{ color: '#121212', marginTop: '1.2rem', marginBottom: 0, fontWeight: 800, fontSize: '1.3rem' }}>
+              Scan to Skip the Wait!
+            </h4>
+          </div>
+
+          <button onClick={downloadQRCode} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#3b82f6', borderColor: '#3b82f6' }}>
+            <Download size={20} /> Download High-Res PNG
+          </button>
+        </div>
+
         {/* Status Toggle Section */}
         <div style={{ 
           background: 'rgba(0,0,0,0.2)', 
@@ -76,8 +134,8 @@ export default function Dashboard() {
           marginBottom: '2rem'
         }}>
           <Activity size={48} className="mb-2" style={{ color: isActive ? 'var(--success)' : 'var(--danger)' }} />
-          <h3 className="mb-1">Store Status</h3>
-          <p className="text-muted mb-3">Turn your store online so customers can see you on the map.</p>
+          <h3 className="mb-1">Store Dispatch</h3>
+          <p className="text-muted mb-3">Turn your AI tracking engine online so customers can see you on the tracking grid.</p>
           
           <button 
             onClick={toggleStatus} 

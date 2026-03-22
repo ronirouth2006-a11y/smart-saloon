@@ -105,3 +105,49 @@ def get_nearby(
 
     # 5. Sorting: Nearest shop appears at the top (e.g., Kolaghat shop first if you are in Kolaghat)
     return sorted(result, key=lambda x: x["distance"])
+
+# =========================================================
+# 🎯 QR CODE DIRECT FETCH API: Loads a single salon for exactly /salons/{id}
+# =========================================================
+@router.get("/salons/{salon_id}")
+def get_single_salon(
+    salon_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    import pytz
+    from auth import get_optional_user
+
+    email = get_optional_user(request)
+    user_fav_ids = set()
+    if email:
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if user:
+            user_fav_ids = {f.id for f in user.favorites}
+
+    s = db.query(models.Saloon).filter(models.Saloon.id == salon_id).first()
+    if not s:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Salon not found")
+
+    status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == s.id).first()
+    
+    people = status.current_count if status else 0
+    current_status = status.status if status else "AVAILABLE"
+    
+    wait_time = (people * 5) + 2 if people > 0 else 0
+    
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    updated_str = "N/A"
+    if status and status.updated_at:
+        ist_time = status.updated_at.replace(tzinfo=pytz.utc).astimezone(ist_timezone)
+        updated_str = ist_time.strftime("%I:%M:%S %p") + " (IST)"
+
+    return {
+        "id": s.id,
+        "name": s.name,
+        "current_count": people,
+        "wait_time": wait_time,
+        "updated_at": updated_str,
+        "is_favorited": s.id in user_fav_ids
+    }
