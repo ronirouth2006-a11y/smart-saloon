@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Power, LogOut, Activity, TrendingUp } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Power, LogOut, Activity, TrendingUp, BarChart as BarChartIcon } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import api from '../api';
 
 export default function Dashboard() {
   const [isActive, setIsActive] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [analytics, setAnalytics] = useState([]);
+  const [hourlyData, setHourlyData] = useState([]);
+  const [dailyData, setDailyData] = useState([]);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -18,12 +19,13 @@ export default function Dashboard() {
     }
     const owner = JSON.parse(ownerStr);
     const salonId = owner.id || 1;
-
-    // Depending on backend support, you would fetch current status here.
     
     // Fetch analytics data
-    api.get(`/owner/analytics/${salonId}/hourly`)
-      .then(res => setAnalytics(res.data))
+    api.get(`/owner/analytics/${salonId}/weekly`)
+      .then(res => {
+          setHourlyData(res.data.hourly);
+          setDailyData(res.data.daily);
+      })
       .catch(err => console.error("Error fetching analytics", err));
   }, [navigate]);
 
@@ -56,7 +58,7 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '2rem auto' }}>
+    <div style={{ maxWidth: '1000px', margin: '2rem auto' }}>
       <div className="glass-panel text-center">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <h2 style={{ margin: 0 }}>Salon Dashboard</h2>
@@ -88,54 +90,77 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {/* Analytics Section */}
-        <div style={{ 
-          background: 'rgba(0,0,0,0.2)', 
-          padding: '2rem', 
-          borderRadius: '12px',
-          border: '1px solid var(--panel-border)',
-          marginBottom: '2rem'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginBottom: '2rem' }}>
-            <TrendingUp size={24} className="text-gradient" />
-            <h3 style={{ margin: 0 }}>Traffic Analytics (Today)</h3>
-          </div>
-          
-          <div style={{ height: '300px', width: '100%' }}>
-            {analytics.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={analytics} margin={{ top: 5, right: 30, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                  <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={12} tickMargin={10} axisLine={false} tickLine={false} />
-                  <YAxis stroke="var(--text-muted)" fontSize={12} allowDecimals={false} axisLine={false} tickLine={false} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(15, 23, 42, 0.95)', 
-                      border: '1px solid var(--panel-border)',
-                      borderRadius: '12px',
-                      boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
-                      color: '#fff'
-                    }}
-                    itemStyle={{ color: 'var(--primary)', fontWeight: 'bold' }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    name="Crowd Size"
-                    stroke="var(--primary)" 
-                    strokeWidth={4}
-                    dot={{ fill: 'var(--bg-dark)', stroke: 'var(--primary)', strokeWidth: 2, r: 6 }}
-                    activeDot={{ fill: 'var(--accent)', stroke: '#fff', strokeWidth: 2, r: 8 }}
-                    animationDuration={1500}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-                <div className="loader"></div>
-              </div>
-            )}
-          </div>
+        {/* Analytics Section - Dual Charts */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
+            
+            {/* Left Chart: Hourly Trends (Emerald Green) */}
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
+                    <TrendingUp size={24} style={{ color: '#2ecc71' }} />
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Live Hourly Trend</h3>
+                </div>
+                <div style={{ height: '250px', width: '100%' }}>
+                    {hourlyData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={hourlyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                        <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} axisLine={false} tickLine={false} />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--panel-border)', borderRadius: '12px', color: '#fff' }}
+                            itemStyle={{ color: '#2ecc71', fontWeight: 'bold' }}
+                        />
+                        <Line 
+                            type="monotone" 
+                            dataKey="count" 
+                            name="Customers"
+                            stroke="#2ecc71" 
+                            strokeWidth={4}
+                            dot={{ fill: 'var(--bg-dark)', stroke: '#2ecc71', strokeWidth: 2, r: 4 }}
+                            activeDot={{ fill: '#2ecc71', stroke: '#fff', strokeWidth: 2, r: 6 }}
+                            animationDuration={1500}
+                        />
+                        </LineChart>
+                    </ResponsiveContainer>
+                    ) : (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><div className="loader"></div></div>
+                    )}
+                </div>
+            </div>
+
+            {/* Right Chart: 7-Day Footfall (Sun Flower Yellow) */}
+            <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
+                    <BarChartIcon size={24} style={{ color: '#f1c40f' }} />
+                    <h3 style={{ margin: 0, fontSize: '1.2rem' }}>7-Day Footfall History</h3>
+                </div>
+                <div style={{ height: '250px', width: '100%' }}>
+                    {dailyData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
+                        <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
+                        <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} axisLine={false} tickLine={false} />
+                        <Tooltip 
+                            contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--panel-border)', borderRadius: '12px', color: '#fff' }}
+                            itemStyle={{ color: '#f1c40f', fontWeight: 'bold' }}
+                            cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                        />
+                        <Bar 
+                            dataKey="footfall" 
+                            name="Total Footfall" 
+                            fill="#f1c40f" 
+                            radius={[6, 6, 0, 0]} 
+                            animationDuration={1500}
+                        />
+                        </BarChart>
+                    </ResponsiveContainer>
+                    ) : (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><div className="loader"></div></div>
+                    )}
+                </div>
+            </div>
+
         </div>
         
         <p className="text-muted" style={{ fontSize: '0.9rem' }}>

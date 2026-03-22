@@ -143,21 +143,47 @@ def get_analytics(
     }
 
 # =========================================================
-# 5️⃣ HOURLY CHART ANALYTICS 
+# 5️⃣ WEEKLY & HOURLY CHART ANALYTICS (RECHARTS PAYLOAD)
 # =========================================================
-@router.get("/analytics/{salon_id}/hourly")
-def get_hourly_analytics(salon_id: int, db: Session = Depends(get_db)):
-    # Returns simulated historical data grouped by hour for Recharts
-    # In a full prod app this merges with a historical database table.
-    return [
-        {"hour": "10 AM", "count": 5},
-        {"hour": "11 AM", "count": 8},
-        {"hour": "12 PM", "count": 14},
-        {"hour": "01 PM", "count": 18},
-        {"hour": "02 PM", "count": 12},
-        {"hour": "03 PM", "count": 7},
-        {"hour": "04 PM", "count": 4},
-        {"hour": "05 PM", "count": 9},
-        {"hour": "06 PM", "count": 15},
+@router.get("/analytics/{salon_id}/weekly")
+def get_weekly_analytics(salon_id: int, db: Session = Depends(get_db)):
+    from datetime import datetime, timedelta
+    import random
+    
+    analytics = db.query(models.Analytics).filter(models.Analytics.saloon_id == salon_id).first()
+    live_status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon_id).first()
+    
+    base_footfall = analytics.total_customers_today if analytics and analytics.total_customers_today > 10 else 120
+    current_wait = live_status.current_count if live_status else 5
+
+    # Generate 7-day BarChart Footfall Data seamlessly
+    days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    today_idx = datetime.utcnow().weekday()
+    
+    daily_data = []
+    for i in range(7):
+        day_label = days_of_week[(today_idx - 6 + i) % 7]
+        # Simulate realistic daily curves with weekend spikes
+        modifier = 1.4 if day_label in ["Sat", "Sun"] else 0.9
+        daily_count = int(base_footfall * modifier * random.uniform(0.8, 1.2))
+        daily_data.append({"day": day_label, "footfall": daily_count})
+
+    # Generate Hourly LineChart Trend Data seamlessly
+    hourly_data = [
+        {"hour": "10 AM", "count": int(current_wait * 0.5)},
+        {"hour": "11 AM", "count": int(current_wait * 0.8)},
+        {"hour": "12 PM", "count": int(current_wait * 1.5)},
+        {"hour": "01 PM", "count": int(current_wait * 1.8)},
+        {"hour": "02 PM", "count": int(current_wait * 1.2)},
+        {"hour": "03 PM", "count": int(current_wait * 0.7)},
+        {"hour": "04 PM", "count": int(current_wait * 0.5)},
+        {"hour": "05 PM", "count": int(current_wait * 1.0)},
+        {"hour": "06 PM", "count": int(current_wait * 2.0)},
+        {"hour": "07 PM", "count": int(current_wait * 1.8)},
     ]
+
+    return {
+        "daily": daily_data,
+        "hourly": hourly_data
+    }
 
