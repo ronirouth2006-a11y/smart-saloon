@@ -9,6 +9,14 @@ class OwnerRegister(BaseModel):
     phone: str
     latitude: float
     longitude: float
+
+class CustomerRegister(BaseModel):
+    name: str
+    email: str
+    password: str
+
+class CustomerLogin(BaseModel):
+    email: str
     password: str
 
 # ১. ওনার লগইন করার জন্য

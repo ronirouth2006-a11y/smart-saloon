@@ -33,6 +33,8 @@ def create_token(data: dict):
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
+from fastapi import Request
+
 # 3. Security Guard: Verify the User
 def get_current_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
@@ -49,3 +51,15 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         return email
     except JWTError:
         raise credentials_exception
+
+# 4. Optional Security Guard for Public routes
+def get_optional_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header.split(" ")[1]
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        return payload.get("sub")
+    except JWTError:
+        return None

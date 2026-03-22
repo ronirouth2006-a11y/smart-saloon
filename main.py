@@ -4,6 +4,7 @@ from database import Base, engine, SessionLocal
 from routers.camera import router as camera_router
 from routers.public import router as public_router
 from routers.owner import router as owner_router
+from routers.customer import router as customer_router
 from models import LiveStatus, Saloon
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -38,6 +39,7 @@ def get_db():
 app.include_router(camera_router)
 app.include_router(public_router)
 app.include_router(owner_router)
+app.include_router(customer_router)
 
 @app.get("/")
 def home():

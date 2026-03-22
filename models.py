@@ -1,6 +1,26 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean, Table
+from sqlalchemy.orm import relationship
 from database import Base
 from datetime import datetime
+
+# Association Table for Many-to-Many
+user_favorites = Table(
+    'user_favorites', Base.metadata,
+    Column('user_id', Integer, ForeignKey('users.id')),
+    Column('saloon_id', Integer, ForeignKey('saloons.id'))
+)
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    name = Column(String(100))
+    email = Column(String(100), unique=True)
+    password = Column(String(200))
+    is_customer = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+    
+    favorites = relationship("Saloon", secondary=user_favorites)
 
 class Owner(Base):
     __tablename__ = "owners"

@@ -33,9 +33,23 @@ def haversine(lat1, lon1, lat2, lon2):
 
 # 🚀 MAIN API: Finds nearby salons based on User's current location (Kolaghat or Kolkata)
 @router.get("/salons/nearby")
-def get_nearby(user_lat: float, user_lon: float, db: Session = Depends(get_db)):
+def get_nearby(
+    user_lat: float, 
+    user_lon: float, 
+    request: Request,
+    db: Session = Depends(get_db)
+):
     import pytz
+    from auth import get_optional_user
     
+    # Check if a customer is logged in (silently fails if not)
+    email = get_optional_user(request)
+    user_fav_ids = set()
+    if email:
+        user = db.query(models.User).filter(models.User.email == email).first()
+        if user:
+            user_fav_ids = {f.id for f in user.favorites}
+            
     # 1. Fetch only active shops from the database
     salons = db.query(models.Saloon).filter(models.Saloon.is_active == True).all()
 
@@ -82,11 +96,11 @@ def get_nearby(user_lat: float, user_lon: float, db: Session = Depends(get_db)):
                 "name": s.name,
                 "distance": round(distance, 2),  # Distance in Kilometers
                 "current_count": people,         # Live count from AI Camera
-                "status": current_status,
                 "wait_time": wait_time,          # Predicted wait time
                 "latitude": s.latitude,
                 "longitude": s.longitude,
-                "updated_at": updated_str        # IST Last Updated Timstamp
+                "updated_at": updated_str,       # IST Last Updated Timstamp
+                "is_favorited": s.id in user_fav_ids # Database synced favorites
             })
 
     # 5. Sorting: Nearest shop appears at the top (e.g., Kolaghat shop first if you are in Kolaghat)

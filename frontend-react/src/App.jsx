@@ -4,6 +4,8 @@ import Home from './pages/Home';
 import MapView from './pages/MapView';
 import OwnerLogin from './pages/OwnerLogin';
 import Dashboard from './pages/Dashboard';
+import Register from './pages/Register';
+import CustomerLogin from './pages/CustomerLogin';
 
 function App() {
   const navigate = useNavigate();
@@ -17,6 +19,8 @@ function App() {
         </Link>
         <nav className="nav-links">
           <Link to="/map">Find Salons</Link>
+          <Link to="/customer/login" style={{ color: 'var(--primary)' }}>Customer Sign In</Link>
+          <Link to="/register" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Register Shop</Link>
           <Link to="/owner/login" className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
             Owner Login
           </Link>
@@ -27,6 +31,8 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/map" element={<MapView />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/customer/login" element={<CustomerLogin />} />
           <Route path="/owner/login" element={<OwnerLogin />} />
           <Route path="/owner/dashboard" element={<Dashboard />} />
         </Routes>
