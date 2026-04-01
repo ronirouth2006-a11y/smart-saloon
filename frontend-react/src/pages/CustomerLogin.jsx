@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, LogIn, Repeat } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import api from '../api';
 
 export default function CustomerLogin() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [formData, setFormData] = useState({
@@ -73,10 +75,10 @@ export default function CustomerLogin() {
     <div style={{ maxWidth: '400px', margin: '4rem auto' }}>
       <div className="text-center mb-4">
         <h2 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
-          <span className="text-gradient">{isLogin ? 'Customer Login' : 'Join Smart Saloon'}</span>
+          <span className="text-gradient">{isLogin ? t('customer_login_title') : t('customer_join_title')}</span>
         </h2>
         <p className="text-muted" style={{ fontSize: '1.1rem' }}>
-          {isLogin ? 'Access your synchronized favorites.' : 'Sign Up to Save Favorites permanently.'}
+          {isLogin ? t('customer_login_sub') : t('customer_join_sub')}
         </p>
       </div>
 
@@ -91,11 +93,11 @@ export default function CustomerLogin() {
 
         <form onSubmit={handleSubmit}>
           {!isLogin && (
-            <div className="form-group">
-              <label className="form-label">Full Name</label>
+            <div className="input-group">
+              <label>{t('full_name')}</label>
               <input 
                 type="text" 
-                className="form-control" 
+                className="input-field" 
                 required
                 value={formData.name}
                 onChange={e => setFormData({...formData, name: e.target.value})}
@@ -104,11 +106,11 @@ export default function CustomerLogin() {
             </div>
           )}
 
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
+          <div className="input-group">
+            <label>{t('email_address')}</label>
             <input 
               type="email" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.email}
               onChange={e => setFormData({...formData, email: e.target.value})}
@@ -116,21 +118,21 @@ export default function CustomerLogin() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
+          <div className="input-group">
+            <label>{t('password')}</label>
             <input 
               type="password" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.password}
               onChange={e => setFormData({...formData, password: e.target.value})}
-              placeholder="Secure password"
+              placeholder="••••••••"
             />
           </div>
 
           <button type="submit" className="btn w-full mt-2" disabled={loading || syncing} style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', alignItems: 'center' }}>
             {syncing ? <Repeat size={20} className="spin" /> : <LogIn size={20} />}
-            {syncing ? 'Syncing Data...' : (loading ? 'Processing...' : (isLogin ? 'Login to Smart Saloon' : 'Create Customer Account'))}
+            {syncing ? '...' : (loading ? '...' : (isLogin ? t('login_btn') : t('create_customer_btn')))}
           </button>
         </form>
 
@@ -140,7 +142,7 @@ export default function CustomerLogin() {
             onClick={() => { setIsLogin(!isLogin); setError(''); }}
             style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '1rem' }}
           >
-            {isLogin ? "Need an account? Sign Up" : "Already have an account? Login"}
+            {isLogin ? t('need_account') : t('have_account_login')}
           </button>
         </div>
       </div>

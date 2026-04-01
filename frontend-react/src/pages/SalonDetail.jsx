@@ -1,55 +1,102 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { Camera, Users, Clock, Heart, ArrowLeft } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { 
+  ArrowLeft, 
+  MapPin, 
+  RefreshCw, 
+  Clock, 
+  Users, 
+  CheckCircle2, 
+  Timer,
+  Scissors,
+  ChevronRight,
+  Info
+} from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
 import api from '../api';
 import { formatLocalNum, formatLocalTime } from '../utils/locale';
 
+// Custom Marker Icons
+const userIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div class="pulse-marker" style="background: #2d67b2; box-shadow: 0 0 0 rgba(45, 103, 178, 0.4);"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+const salonIcon = L.divIcon({
+  className: 'custom-div-icon',
+  html: `<div class="pulse-marker"></div>`,
+  iconSize: [20, 20],
+  iconAnchor: [10, 10]
+});
+
+function ChangeView({ center }) {
+  const map = useMap();
+  map.setView(center, 15);
+  return null;
+}
+
 export default function SalonDetail() {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  
   const [salon, setSalon] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const { t } = useTranslation();
+  const [userCoords, setUserCoords] = useState(null);
+  const [distance, setDistance] = useState(null);
 
   useEffect(() => {
-    const fetchSalon = async () => {
-      try {
-        const token = localStorage.getItem('customer_token');
-        const headers = token ? { Authorization: `Bearer ${token}` } : {};
-        const res = await api.get(`/public/salons/${id}`, { headers });
-        setSalon(res.data);
-      } catch (err) {
-        setError('Failed to locate salon. It might be closed or unregistered.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchSalon();
-  }, [id]);
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          setUserCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude });
+        },
+        () => {
+          // Fallback to salon location if user denies GPS, for visual tracking demo
+          console.warn("Geolocation denied, using default center.");
+          setUserCoords({ lat: 22.5726, lon: 88.3639 }); 
+        }
+      );
+    } else {
+      setUserCoords({ lat: 22.5726, lon: 88.3639 });
+    }
+  }, []);
 
-  const toggleFavorite = async () => {
-    if (!salon) return;
-    
-    const token = localStorage.getItem('customer_token');
-    const currentFavs = JSON.parse(localStorage.getItem('favorite_salons') || '[]');
-    const isFav = currentFavs.includes(salon.id);
-    const newFavs = isFav ? currentFavs.filter(fid => fid !== salon.id) : [...currentFavs, salon.id];
-    
-    localStorage.setItem('favorite_salons', JSON.stringify(newFavs));
-    setSalon({ ...salon, is_favorited: !isFav });
-
-    if (token) {
-      try {
-        await api.post('/customer/favorites/sync', 
-          { salon_ids: newFavs }, 
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-      } catch (err) {
-        console.error("Cloud Sync Failed", err);
+  const fetchSalon = async () => {
+    try {
+      const token = localStorage.getItem('customer_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const res = await api.get(`/public/salons/${id}`, { headers });
+      setSalon(res.data);
+      
+      if (userCoords && res.data.latitude) {
+        const R = 6371;
+        const dLat = (res.data.latitude - userCoords.lat) * Math.PI / 180;
+        const dLon = (res.data.longitude - userCoords.lon) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(userCoords.lat * Math.PI / 180) * Math.cos(res.data.latitude * Math.PI / 180) * 
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        setDistance((R * c).toFixed(1));
       }
+    } catch (err) {
+      setError('Failed to locate salon.');
+    } finally {
+      setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchSalon();
+    const interval = setInterval(fetchSalon, 5000); // 🚀 Optimized: Poll every 5s for real-time feel
+    return () => clearInterval(interval);
+  }, [id, userCoords]);
 
   if (loading) {
     return <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4rem' }}><div className="loader"></div></div>;
@@ -57,79 +104,189 @@ export default function SalonDetail() {
 
   if (error || !salon) {
     return (
-      <div className="text-center" style={{ marginTop: '4rem' }}>
-        <h2 style={{ color: 'var(--danger)' }}>{error}</h2>
-        <Link to="/map" className="btn mt-4">{t('back_to_map')}</Link>
+      <div className="text-center" style={{ marginTop: '4rem', padding: '2rem' }}>
+        <Info size={48} color="var(--danger)" style={{ marginBottom: '1rem' }} />
+        <h2>{error || "Salon not found"}</h2>
+        <button onClick={() => navigate('/map')} className="btn mt-4">Back to Search</button>
       </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '600px', margin: '2rem auto' }}>
-      <Link to="/map" style={{ color: 'var(--primary)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', textDecoration: 'none' }}>
-        <ArrowLeft size={20} /> {t('back_to_map')}
-      </Link>
-
-      <div className="glass-panel text-center" style={{ padding: '3rem 2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
-          <div style={{ padding: '1.5rem', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '50%' }}>
-            <Camera size={48} className="text-gradient" />
+    <div style={{ background: 'var(--zomato-bg)', minHeight: '100vh', color: '#333', paddingBottom: '3rem' }}>
+      
+      {/* 1. Header Area (Location Bar) */}
+      <div className="zomato-header">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div style={{ background: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}>
+            <MapPin size={18} color="var(--zomato-orange)" />
+          </div>
+          <div>
+            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              Gandhi Nagar Col... <span style={{ fontSize: '0.7rem' }}>▼</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', color: '#555' }}>Haldia, West Bengal</div>
           </div>
         </div>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+            <div style={{ width: '40px', height: '20px', background: '#ddd', borderRadius: '20px', position: 'relative' }}>
+                <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', right: '2px', top: '2px' }}></div>
+            </div>
+        </div>
+      </div>
+
+      <div className="container" style={{ maxWidth: '480px', paddingTop: '1.5rem' }}>
         
-        <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>{salon.name}</h1>
-        <p className="text-muted mb-4" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
-          <Clock size={16} /> {t('last_updated', { time: formatLocalTime(salon.updated_at.split(' (IST)')[0], i18n.language) })}
-        </p>
+        {/* Back Link */}
+        <div onClick={() => navigate('/map')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', color: '#666', fontWeight: '500' }}>
+            <ArrowLeft size={18} /> My Salons
+        </div>
 
-        <div style={{ 
-          background: 'rgba(0,0,0,0.3)', 
-          padding: '2rem', 
-          borderRadius: '12px',
-          border: '1px solid var(--panel-border)',
-          display: 'flex',
-          justifyContent: 'space-around',
-          alignItems: 'center',
-          marginBottom: '2rem'
-        }}>
-          <div>
-            <h4 className="text-muted mb-1" style={{ fontSize: '1rem' }}>{t('current_crowd')}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '2.5rem', fontWeight: 'bold' }}>
-              <Users size={32} /> {formatLocalNum(salon.current_count, i18n.language)}
+        {/* 2. Queue Info Card (The Blue Card) */}
+        <div className="zomato-card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+               <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800' }}>Queue Status</h2>
+               <p style={{ margin: '0.3rem 0 0', opacity: 0.9 }}>
+                 {salon.is_active ? "Your spot is being monitored..." : "Salon is currently offline"}
+               </p>
+               <div style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.8 }}>
+                 {salon.name.toUpperCase()} • {formatLocalTime(salon.updated_at.split(' (IST)')[0], 'en')}
+               </div>
+            </div>
+            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.8rem', borderRadius: '12px' }}>
+                <Scissors size={28} />
             </div>
           </div>
           
-          <div style={{ width: '1px', background: 'var(--panel-border)', height: '60px' }}></div>
-          
-          <div>
-            <h4 className="text-muted mb-1" style={{ fontSize: '1rem' }}>{t('predicted_wait')}</h4>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', fontSize: '2.5rem', fontWeight: 'bold', color: 'var(--accent)' }}>
-              <Clock size={32} /> {formatLocalNum(salon.wait_time, i18n.language)}<span style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>m</span>
-            </div>
+          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
+            <button 
+              onClick={fetchSalon}
+              style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              <RefreshCw size={14} /> Refresh
+            </button>
           </div>
         </div>
+
+        {/* 3. Live Tracking Map Section */}
+        <div style={{ marginBottom: '2rem' }}>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1rem', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
+               <Timer size={18} /> Live Tracking
+            </h3>
+            
+            <div style={{ height: '350px', borderRadius: '20px', border: '1px solid #ddd', overflow: 'hidden', position: 'relative' }}>
+                {userCoords && salon.latitude && (
+                    <MapContainer 
+                        center={[userCoords.lat, userCoords.lon]} 
+                        zoom={15} 
+                        style={{ height: '100%', width: '100%' }}
+                        zoomControl={false}
+                    >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <ChangeView center={[userCoords.lat, userCoords.lon]} />
+                        
+                        <Marker position={[userCoords.lat, userCoords.lon]} icon={userIcon} />
+                        <Marker position={[salon.latitude, salon.longitude]} icon={salonIcon} />
+                        
+                        <Polyline 
+                            positions={[
+                                [userCoords.lat, userCoords.lon],
+                                [salon.latitude, salon.longitude]
+                            ]} 
+                            color="#ff7e33" 
+                            dashArray="10, 10" 
+                            weight={3}
+                        />
+
+                        <div className="map-distance-badge">
+                            <Navigation size={14} color="var(--zomato-orange)" />
+                            {distance ? `${distance} km away` : 'Calculating...'}
+                        </div>
+                    </MapContainer>
+                )}
+            </div>
+        </div>
+
+        {/* 4. Queue Progress Timeline */}
+        <div>
+            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1rem', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>
+               <Users size={18} /> Wait Progress
+            </h3>
+
+            <div className="timeline">
+                <div className={`timeline-item ${salon.is_active ? 'active' : ''}`}>
+                    <div className="timeline-dot">
+                        <CheckCircle2 size={18} />
+                    </div>
+                    <div className="timeline-content">
+                        <h4>Salon Opened</h4>
+                        <p>The shop is currently accepting customers.</p>
+                    </div>
+                </div>
+
+                <div className={`timeline-item ${salon.current_count > 0 ? 'active' : ''}`}>
+                    <div className="timeline-dot">
+                        <Users size={18} />
+                    </div>
+                    <div className="timeline-content">
+                        <h4>In Queue</h4>
+                        <p>{salon.current_count} people currently waiting in line.</p>
+                    </div>
+                </div>
+
+                <div className={`timeline-item ${salon.wait_time < 10 && salon.is_active ? 'active' : ''}`}>
+                    <div className="timeline-dot">
+                        <Timer size={18} />
+                    </div>
+                    <div className="timeline-content">
+                        <h4>Almost Ready</h4>
+                        <p>Estimated wait time is now {salon.wait_time} minutes.</p>
+                    </div>
+                </div>
+
+                <div className="timeline-item">
+                    <div className="timeline-dot">
+                        <Scissors size={18} />
+                    </div>
+                    <div className="timeline-content">
+                        <h4>Service Started</h4>
+                        <p>Arrive soon to skip the rush!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {/* Staff Section */}
+        {salon.barbers && salon.barbers.length > 0 && (
+            <div style={{ marginTop: '2.5rem', background: 'white', padding: '1.5rem', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Available Barbers</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                    {salon.barbers.map(b => (
+                        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '0.8rem' }}>
+                            <div>
+                                <div style={{ fontWeight: '600' }}>{b.name}</div>
+                                <div style={{ fontSize: '0.8rem', color: '#666' }}>{b.specialty}</div>
+                            </div>
+                            <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                                LIVE
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        )}
 
         <button 
-          className="btn" 
-          onClick={toggleFavorite}
-          style={{ 
-            width: '100%', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            gap: '0.5rem', 
-            fontSize: '1.2rem', 
-            padding: '1rem',
-            background: salon.is_favorited ? 'rgba(231, 76, 60, 0.1)' : 'var(--primary)',
-            color: salon.is_favorited ? 'var(--danger)' : '#fff',
-            borderColor: salon.is_favorited ? 'var(--danger)' : 'var(--primary)'
-          }}
+           onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`)}
+           className="btn btn-primary w-full mt-4" 
+           style={{ background: '#2d67b2', padding: '1.2rem', fontSize: '1rem', borderRadius: '15px' }}
         >
-          <Heart size={24} fill={salon.is_favorited ? 'var(--danger)' : 'none'} color={salon.is_favorited ? 'var(--danger)' : 'currentColor'} />
-          {salon.is_favorited ? t('remove_watchlist') : t('add_watchlist')}
+            Navigate To Salon <ChevronRight size={20} />
         </button>
 
       </div>
     </div>
   );
 }
+

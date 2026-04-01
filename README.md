@@ -42,3 +42,19 @@ npm run dev
 ```
 
 **Verification:** Open the browser. Your Kolaghat-registered shop should now appear with its live count and an accurate distance based on your current GPS.
+
+## 5. Security & Browser Warnings ("Not Secure")
+
+When running this app locally, your browser (Edge, Chrome, etc.) may show a **"Not Secure"** warning in the address bar. 
+
+### Why this happens:
+- **HTTP vs HTTPS:** This is a local development environment. By default, it uses **HTTP**. Modern browsers flag any HTTP website as "Not Secure" because the data is not encrypted.
+- **Localhost Safety:** Since the app is running entirely on your computer (on `localhost` or `127.0.0.1`), your data is not leaving your machine. It is **SAFE** to use and is NOT harmful to your phone or PC.
+
+### How to ignore/bypass:
+1. Click on the **"Not Secure"** or **"Advanced"** button in your browser.
+2. Select **"Continue to 127.0.0.1 (unsafe)"** or **"Proceed to localhost"**.
+3. The app will then load normally.
+
+> [!NOTE]
+> For a professional production release, an SSL certificate would be used to enable **HTTPS** and remove this warning.

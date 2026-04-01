@@ -1,8 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, schemas, auth
 from auth import get_current_user
+import uuid
+import os
+import shutil
 
 # ✅ Prefix added (VERY IMPORTANT)
 router = APIRouter(prefix="/owner", tags=["Owner"])
@@ -115,6 +118,75 @@ def toggle_status(
 
 
 # =========================================================
+# 3.5️⃣ UPLOAD STOREFRONT PHOTO (Verification)
+# =========================================================
+@router.post("/{salon_id}/upload-photo")
+def upload_storefront_photo(
+    salon_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.id == salon_id, models.Saloon.owner_id == owner.id).first()
+
+    if not salon:
+        raise HTTPException(status_code=404, detail="Salon not found or unauthorized")
+
+    file_ext = file.filename.split(".")[-1]
+    unique_filename = f"{uuid.uuid4()}.{file_ext}"
+    file_path = f"static/uploads/salons/{unique_filename}"
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    salon.storefront_photo_url = f"/static/uploads/salons/{unique_filename}"
+    db.commit()
+
+    return {"message": "Photo uploaded successfully for verification.", "url": salon.storefront_photo_url}
+
+
+# =========================================================
+# 3.6️⃣ MANUAL OVERRIDE & CCTV HOOK (Update Crowd)
+# =========================================================
+@router.put("/live-status")
+def update_live_crowd(
+    current_count: int,
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+
+    if not salon:
+        raise HTTPException(status_code=404, detail="Salon not found")
+
+    live_status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon.id).first()
+    
+    if not live_status:
+        raise HTTPException(status_code=404, detail="Live status record not found")
+
+    # Update count
+    live_status.current_count = current_count
+    
+    # Auto-calculate status string based on max limit
+    if current_count >= salon.max_limit:
+        live_status.status = "BUSY"
+    elif current_count >= (salon.max_limit // 2):
+        live_status.status = "MEDIUM"
+    else:
+        live_status.status = "AVAILABLE"
+
+    db.commit()
+
+    return {
+        "message": "Crowd count updated successfully",
+        "current_count": live_status.current_count,
+        "status": live_status.status
+    }
+
+
+# =========================================================
 # 4️⃣ OWNER ANALYTICS (OPTIONAL BUT IMPORTANT 🚀)
 # =========================================================
 @router.get("/analytics/{salon_id}")
@@ -186,4 +258,80 @@ def get_weekly_analytics(salon_id: int, db: Session = Depends(get_db)):
         "daily": daily_data,
         "hourly": hourly_data
     }
+
+
+# =========================================================
+# 6️⃣ STAFF MANAGEMENT (BARBERS)
+# =========================================================
+@router.get("/barbers", response_model=list[schemas.BarberResponse])
+def get_barbers(
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    return db.query(models.Barber).filter(models.Barber.saloon_id == salon.id).all()
+
+@router.post("/barbers", response_model=schemas.BarberResponse)
+def add_barber(
+    data: schemas.BarberCreate,
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    
+    new_barber = models.Barber(
+        saloon_id=salon.id,
+        name=data.name,
+        specialty=data.specialty,
+        is_available=True
+    )
+    db.add(new_barber)
+    db.commit()
+    db.refresh(new_barber)
+    return new_barber
+
+@router.delete("/barbers/{barber_id}")
+def delete_barber(
+    barber_id: int,
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    
+    barber = db.query(models.Barber).filter(
+        models.Barber.id == barber_id, 
+        models.Barber.saloon_id == salon.id
+    ).first()
+    
+    if not barber:
+        raise HTTPException(status_code=404, detail="Barber not found")
+        
+    db.delete(barber)
+    db.commit()
+    return {"message": "Barber removed"}
+
+# =========================================================
+# 7️⃣ SALON SETTINGS UPDATE
+# =========================================================
+@router.patch("/salon")
+def update_salon(
+    data: schemas.SalonUpdate,
+    db: Session = Depends(get_db),
+    email: str = Depends(get_current_user)
+):
+    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    
+    if data.name: salon.name = data.name
+    if data.max_limit: salon.max_limit = data.max_limit
+    if data.assistant_phone: salon.assistant_phone = data.assistant_phone
+    if data.latitude: salon.latitude = data.latitude
+    if data.longitude: salon.longitude = data.longitude
+    if data.camera_url: salon.camera_url = data.camera_url
+    
+    db.commit()
+    return {"message": "Salon settings updated"}
 

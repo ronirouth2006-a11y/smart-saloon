@@ -19,21 +19,21 @@ class CustomerLogin(BaseModel):
     email: str
     password: str
 
-# ১. ওনার লগইন করার জন্য
+# 1. For owner login
 class OwnerLogin(BaseModel):
     email: str
     password: str
 
-# ২. YOLO ক্যামেরা থেকে ডাটা রিসিভ করার জন্য
+# 2. For receiving data from YOLO camera
 class CameraUpdate(BaseModel):
     saloon_id: int
     people: int
 
-# ৩. ✅ NEW: দোকান খোলা বা বন্ধ করার সুইচ এর জন্য
+# 3. ✅ NEW: For shop open/close toggle
 class SalonStatusUpdate(BaseModel):
     is_active: bool
 
-# ৪. ✅ NEW: ইউজার যখন দোকানের লিস্ট দেখবে, তার রেসপন্স ফরম্যাট
+# 4. ✅ NEW: Response format for salon list view
 class SalonResponse(BaseModel):
     id: int
     name: str
@@ -41,6 +41,28 @@ class SalonResponse(BaseModel):
     current_count: int
     status: str
     is_active: bool
+    camera_url: Optional[str] = None
 
     class Config:
         from_attributes = True
+
+class BarberCreate(BaseModel):
+    name: str
+    specialty: str
+
+class BarberResponse(BaseModel):
+    id: int
+    name: str
+    specialty: str
+    is_available: bool
+
+    class Config:
+        from_attributes = True
+
+class SalonUpdate(BaseModel):
+    name: Optional[str] = None
+    max_limit: Optional[int] = None
+    assistant_phone: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    camera_url: Optional[str] = None

@@ -1,9 +1,34 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapPin, UserPlus, Scissors } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import api from '../api';
 
+// Fix for default Leaflet markers in React
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+// Helper component to recenter map when location is found
+function ChangeView({ center, zoom }) {
+  const map = useMap();
+  map.setView(center, zoom);
+  return null;
+}
+
 export default function Register() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     owner_name: '',
@@ -19,6 +44,12 @@ export default function Register() {
   const [error, setError] = useState('');
   const [locating, setLocating] = useState(false);
   const [locationSuccess, setLocationSuccess] = useState(false);
+
+  // Verification Step Variables
+  const [step, setStep] = useState(1);
+  const [registeredSalonId, setRegisteredSalonId] = useState(null);
+  const [photoFile, setPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
 
   const getGPSLocation = () => {
     setLocating(true);
@@ -36,14 +67,54 @@ export default function Register() {
           setLocating(false);
         },
         (error) => {
-          setError('Failed to get location. Please allow location access.');
           setLocating(false);
+          // Auto-scroll to map
+          setTimeout(() => {
+              document.getElementById('map-picker')?.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
+        },
+        (error) => {
+          setError('Failed to get location automatically. Please use the map below to set it manually.');
+          setLocating(false);
+          // Set a default center (e.g. Kolkata) so they can drag from somewhere
+          setFormData({
+            ...formData,
+            latitude: 22.5726,
+            longitude: 88.3639
+          });
+          setLocationSuccess(true); 
+          setTimeout(() => {
+              document.getElementById('map-picker')?.scrollIntoView({ behavior: 'smooth' });
+          }, 300);
         }
       );
     } else {
       setError('Geolocation is not supported by your browser.');
       setLocating(false);
     }
+  };
+
+  // Draggable Marker component logic
+  const MarkerEvents = () => {
+    useMapEvents({
+      click(e) {
+        setFormData({ ...formData, latitude: e.latlng.lat, longitude: e.latlng.lng });
+      },
+    });
+    
+    return formData.latitude ? (
+      <Marker
+        draggable={true}
+        eventHandlers={{
+          dragend: (e) => {
+            const marker = e.target;
+            const position = marker.getLatLng();
+            setFormData({ ...formData, latitude: position.lat, longitude: position.lng });
+          },
+        }}
+        position={[formData.latitude, formData.longitude]}
+      />
+    ) : null;
   };
 
   const handleRegister = async (e) => {
@@ -57,10 +128,46 @@ export default function Register() {
     setError('');
 
     try {
-      await api.post('/owner/register', formData);
-      navigate('/owner/login', { state: { message: 'Registration successful! Please login.' } });
+      const res = await api.post('/owner/register', formData);
+      setRegisteredSalonId(res.data.salon_id);
+      setStep(2); // Move to the photo verification step
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please check your inputs.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePhotoCapture = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setPhotoFile(file);
+      setPhotoPreview(URL.createObjectURL(file));
+    }
+  };
+
+  const handlePhotoUpload = async () => {
+    if (!photoFile) {
+      setError('Please take a photo of your storefront first.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+
+    const formData = new FormData();
+    formData.append('file', photoFile);
+
+    try {
+      // Assuming we have an upload token or session persistence.
+      // Since the owner just registered, they might not be fully logged in.
+      // We explicitly pass headers or the backend allows it directly for this ID.
+      // Let's rely on standard endpoints.
+      await api.post(`/owner/${registeredSalonId}/upload-photo`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      navigate('/owner/login', { state: { message: 'Registration and verification submitted! Please login.' } });
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Photo upload failed. You may need to retry later.');
     } finally {
       setLoading(false);
     }
@@ -70,9 +177,9 @@ export default function Register() {
     <div style={{ maxWidth: '500px', margin: '4rem auto' }}>
       <div className="text-center mb-4">
         <h2 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>
-          <span className="text-gradient">New Saloon Registration</span>
+          <span className="text-gradient">{t('register_title')}</span>
         </h2>
-        <p className="text-muted" style={{ fontSize: '1.1rem' }}>Power your business with AI.</p>
+        <p className="text-muted" style={{ fontSize: '1.1rem' }}>{t('register_subtitle')}</p>
       </div>
 
       <div className="glass-panel">
@@ -80,16 +187,19 @@ export default function Register() {
           <div style={{ display: 'inline-flex', padding: '1rem', background: 'rgba(46, 204, 113, 0.1)', borderRadius: '50%', marginBottom: '1rem' }}>
             <UserPlus size={32} style={{ color: 'var(--success)' }} />
           </div>
+          {step === 2 && <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>Step 2: Storefront Verification</h3>}
         </div>
 
         {error && <div className="mb-3" style={{ color: 'var(--danger)', textAlign: 'center', background: 'rgba(231, 76, 60, 0.1)', padding: '0.75rem', borderRadius: '4px' }}>{error}</div>}
 
+        {step === 1 ? (
+
         <form onSubmit={handleRegister}>
-          <div className="form-group">
-            <label className="form-label">Owner Name</label>
+          <div className="input-group">
+            <label>{t('owner_name')}</label>
             <input 
               type="text" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.owner_name}
               onChange={e => setFormData({...formData, owner_name: e.target.value})}
@@ -97,11 +207,11 @@ export default function Register() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Email Address</label>
+          <div className="input-group">
+            <label>{t('email_address')}</label>
             <input 
               type="email" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.email}
               onChange={e => setFormData({...formData, email: e.target.value})}
@@ -109,23 +219,23 @@ export default function Register() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Password</label>
+          <div className="input-group">
+            <label>{t('password')}</label>
             <input 
               type="password" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.password}
               onChange={e => setFormData({...formData, password: e.target.value})}
-              placeholder="Secure password"
+              placeholder="••••••••"
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Phone Number</label>
+          <div className="input-group">
+            <label>{t('phone_number')}</label>
             <input 
               type="tel" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.phone}
               onChange={e => setFormData({...formData, phone: e.target.value})}
@@ -133,11 +243,11 @@ export default function Register() {
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label">Salon Name</label>
+          <div className="input-group">
+            <label>{t('salon_name')}</label>
             <input 
               type="text" 
-              className="form-control" 
+              className="input-field" 
               required
               value={formData.salon_name}
               onChange={e => setFormData({...formData, salon_name: e.target.value})}
@@ -154,19 +264,73 @@ export default function Register() {
               style={{ display: 'flex', justifyContent: 'center', gap: '0.5rem', borderColor: locationSuccess ? 'var(--success)' : 'var(--panel-border)' }}
             >
               <MapPin size={20} style={{ color: locationSuccess ? 'var(--success)' : 'inherit' }} />
-              {locating ? 'Acquiring GPS...' : (locationSuccess ? 'Location Saved Successfully!' : 'Set My Shop Location')}
+              {locating ? t('acquiring_gps') : (locationSuccess ? t('location_success') : t('set_location'))}
             </button>
+            
+            {locationSuccess && (
+                <div id="map-picker" style={{ marginTop: '1rem', height: '300px', borderRadius: '12px', overflow: 'hidden', border: '2px solid var(--panel-border)' }}>
+                    <p className="text-muted" style={{ fontSize: '0.85rem', margin: '0.5rem 0', textAlign: 'center' }}>
+                        Is the GPS slightly off? <strong>Drag the pin</strong> to point strictly to your salon's roof.
+                    </p>
+                    <MapContainer 
+                        center={[formData.latitude, formData.longitude]} 
+                        zoom={16} 
+                        style={{ height: 'calc(100% - 30px)', width: '100%' }}
+                    >
+                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <ChangeView center={[formData.latitude, formData.longitude]} zoom={16} />
+                        <MarkerEvents />
+                    </MapContainer>
+                </div>
+            )}
+            
             {!locationSuccess && <p className="text-muted mt-1 text-center" style={{ fontSize: '0.8rem' }}>Required: We use GPS to show you to nearby customers.</p>}
           </div>
 
           <button type="submit" className="btn w-full mt-2" disabled={loading}>
-            {loading ? 'Registering...' : 'Complete Registration'}
+            {loading ? '...' : t('register_btn')}
           </button>
         </form>
+        ) : (
+          <div className="text-center">
+            <p className="text-muted mb-4">
+              To prevent fake salon registrations and ensure quality for our customers, please take a live photo of your salon's storefront or signboard.
+            </p>
+
+            <div style={{ marginBottom: '1.5rem' }}>
+              {!photoPreview ? (
+                <div style={{ border: '2px dashed var(--panel-border)', padding: '2rem', borderRadius: '12px' }}>
+                  <input 
+                    type="file" 
+                    accept="image/*" 
+                    capture="environment" 
+                    onChange={handlePhotoCapture} 
+                    id="camera-upload"
+                    style={{ display: 'none' }}
+                  />
+                  <label htmlFor="camera-upload" className="btn btn-primary" style={{ cursor: 'pointer', display: 'inline-block' }}>
+                    Capture Storefront Photo
+                  </label>
+                </div>
+              ) : (
+                <div>
+                  <img src={photoPreview} alt="Storefront Preview" style={{ width: '100%', maxHeight: '300px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--panel-border)', marginBottom: '1rem' }} />
+                  <br />
+                  <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="btn btn-secondary mr-2" style={{ marginRight: '1rem' }}>Retake</button>
+                  <button onClick={handlePhotoUpload} className="btn btn-emerald" disabled={loading}>
+                    {loading ? 'Uploading...' : 'Submit Verification'}
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <p className="text-muted" style={{ fontSize: '0.85rem' }}>Your store will only be activated on the live map after admin review of this photo.</p>
+          </div>
+        )}
 
         <div className="text-center mt-4">
           <p className="text-muted">
-            Already have an account? <Link to="/owner/login" style={{ color: 'var(--primary)' }}>Owner Login</Link>
+            {t('already_have_account')} <Link to="/owner/login" style={{ color: 'var(--primary)' }}>{t('nav_owner_login')}</Link>
           </p>
         </div>
       </div>

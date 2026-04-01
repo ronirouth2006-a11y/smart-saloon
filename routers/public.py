@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models
@@ -37,6 +37,7 @@ def get_nearby(
     user_lat: float, 
     user_lon: float, 
     request: Request,
+    search: str = None,
     db: Session = Depends(get_db)
 ):
     import pytz
@@ -50,8 +51,12 @@ def get_nearby(
         if user:
             user_fav_ids = {f.id for f in user.favorites}
             
-    # 1. Fetch only active shops from the database
-    salons = db.query(models.Saloon).filter(models.Saloon.is_active == True).all()
+    # 1. Fetch shops from the database
+    query = db.query(models.Saloon).filter(models.Saloon.is_approved == True)
+    if search:
+        query = query.filter(models.Saloon.name.ilike(f"%{search}%"))
+    
+    salons = query.all()
 
     result = []
     ist_timezone = pytz.timezone('Asia/Kolkata')
@@ -88,19 +93,36 @@ def get_nearby(
                 ist_time = status.updated_at.replace(tzinfo=pytz.utc).astimezone(ist_timezone)
                 updated_str = ist_time.strftime("%I:%M:%S %p") + " (IST)"
 
+            import pytz
+            from datetime import datetime, timedelta
+
             # 4. Wait time prediction (5 mins per person + 2 mins buffer)
             wait_time = (people * 5) + 2
+
+            # 5. Determine display status
+            display_status = "AVAILABLE" if people < 5 else "BUSY"
+            
+            # Check for AI Camera Timeout (>5 mins since last ping)
+            if status and status.updated_at:
+                time_diff = datetime.utcnow() - status.updated_at.replace(tzinfo=None)
+                if time_diff > timedelta(minutes=5):
+                    display_status = "NO LIVE FEED"
+            
+            if not s.is_active:
+                display_status = "OFFLINE"
 
             result.append({
                 "id": s.id,
                 "name": s.name,
-                "distance": round(distance, 2),  # Distance in Kilometers
-                "current_count": people,         # Live count from AI Camera
-                "wait_time": wait_time,          # Predicted wait time
+                "distance": round(distance, 2),
+                "current_count": people,
+                "wait_time": wait_time,
                 "latitude": s.latitude,
                 "longitude": s.longitude,
-                "updated_at": updated_str,       # IST Last Updated Timstamp
-                "is_favorited": s.id in user_fav_ids # Database synced favorites
+                "updated_at": updated_str,
+                "is_favorited": s.id in user_fav_ids,
+                "is_active": s.is_active,
+                "status": display_status
             })
 
     # 5. Sorting: Nearest shop appears at the top (e.g., Kolaghat shop first if you are in Kolaghat)
@@ -137,17 +159,33 @@ def get_single_salon(
     
     wait_time = (people * 5) + 2 if people > 0 else 0
     
-    ist_timezone = pytz.timezone('Asia/Kolkata')
+    display_status = "AVAILABLE" if people < 5 else "BUSY"
+    if status and status.updated_at:
+        from datetime import datetime, timedelta
+        time_diff = datetime.utcnow() - status.updated_at.replace(tzinfo=None)
+        if time_diff > timedelta(minutes=5):
+            display_status = "NO LIVE FEED"
+            
+    if not s.is_active:
+        display_status = "OFFLINE"
     updated_str = "N/A"
     if status and status.updated_at:
         ist_time = status.updated_at.replace(tzinfo=pytz.utc).astimezone(ist_timezone)
         updated_str = ist_time.strftime("%I:%M:%S %p") + " (IST)"
 
+    # Fetch barbers
+    barbers = db.query(models.Barber).filter(models.Barber.saloon_id == s.id).all()
+    barber_list = [{"id": b.id, "name": b.name, "specialty": b.specialty, "is_available": b.is_available} for b in barbers]
+
     return {
         "id": s.id,
         "name": s.name,
+        "latitude": s.latitude,
+        "longitude": s.longitude,
         "current_count": people,
         "wait_time": wait_time,
         "updated_at": updated_str,
-        "is_favorited": s.id in user_fav_ids
+        "is_favorited": s.id in user_fav_ids,
+        "is_active": s.is_active,
+        "barbers": barber_list
     }

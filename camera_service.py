@@ -9,57 +9,86 @@ model = YOLO("yolov8n.pt")
 # Backend API
 API_URL = "http://127.0.0.1:8000/camera/update-count"
 
-# This saloon must exist in DB
-SALOON_ID = 1
-
-def send_count_to_backend(count):
+def send_count_to_backend(saloon_id, count):
     payload = {
-        "saloon_id": SALOON_ID,
+        "saloon_id": saloon_id,
         "people": count
     }
     
-    # 🔐 Injecting the required security authorization header
     headers = {
         "x-api-key": settings.CAMERA_API_KEY
     }
 
     try:
         res = requests.post(API_URL, json=payload, headers=headers, timeout=2)
-        print("Sent:", payload, "Status:", res.status_code)
+        print(f"Salon [{saloon_id}] - Sent Count: {count} - Status: {res.status_code}")
     except Exception as e:
-        print("Backend error:", e)
+        print(f"Backend error for Salon [{saloon_id}]:", e)
 
+import time
+from collections import deque
 
-def run_camera():
-    cap = cv2.VideoCapture(0)
+def run_camera(saloon_id, source=0):
+    """
+    Runs the YOLO-based people counting on a video source.
+    - saloon_id: The ID from the DB
+    - source: 0 for webcam or an RTSP URL for CCTV
+    """
+    print(f"📡 Starting camera service for Salon ID: {saloon_id} | Source: {source}")
+    
+    # 📈 Smoothing Logic: Keep track of the last 10 counts to calculate a stable average
+    # This prevents the UI from flickering (e.g. 5-6-5-5-55-5)
+    history = deque(maxlen=10)
+    last_sent_count = -1
 
     while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
+        cap = cv2.VideoCapture(source)
+        
+        if not cap.isOpened():
+            print(f"❌ Could not open video source {source}. Retrying in 5s...")
+            time.sleep(5)
+            continue
 
-        results = model(frame)
-        count = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                print(f"⚠️ Salon [{saloon_id}]: Stream disconnected. Reconnecting...")
+                break
 
-        for r in results:
-            for box in r.boxes:
-                cls = int(box.cls[0])
-                if model.names[cls] == "person":
-                    count += 1
+            results = model(frame)
+            current_raw_count = 0
 
-        # Send to backend
-        send_count_to_backend(count)
+            for r in results:
+                for box in r.boxes:
+                    cls = int(box.cls[0])
+                    if model.names[cls] == "person":
+                        current_raw_count += 1
 
-        cv2.putText(frame, f"People: {count}", (20, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            # --- Count Smoothing Algorithm ---
+            history.append(current_raw_count)
+            # Calculate the most frequent count in history (mode) or average
+            # Mode is better for avoiding "jumping" counts
+            stable_count = max(set(history), key=history.count)
 
-        cv2.imshow("Salon Camera", frame)
+            # Only send if the stable count has changed to avoid unnecessary API calls
+            if stable_count != last_sent_count:
+                send_count_to_backend(saloon_id, stable_count)
+                last_sent_count = stable_count
 
-        if cv2.waitKey(1) == 27:
-            break
+            # Optional: Visual Debugging
+            try:
+                cv2.putText(frame, f"Salon ID: {saloon_id} | People: {stable_count}", (20, 40),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+                cv2.imshow(f"Camera - Salon {saloon_id}", frame)
+                if cv2.waitKey(1) == 27:
+                    cap.release()
+                    cv2.destroyAllWindows()
+                    return
+            except Exception:
+                pass
 
-    cap.release()
-    cv2.destroyAllWindows()
+        cap.release()
+        time.sleep(2)
 
 
 

@@ -33,6 +33,8 @@ export default function MapView() {
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState('');
   const [coords, setCoords] = useState({ lat: 22.5726, lon: 88.3639 }); // Default Kolkata
+  const [searchTerm, setSearchTerm] = useState('');
+  const [radiusFilter, setRadiusFilter] = useState(false); // false = All, true = 10km
   const [notified, setNotified] = useState(new Set());
   
   const [favorites, setFavorites] = useState(() => {
@@ -45,7 +47,7 @@ export default function MapView() {
     const token = localStorage.getItem('customer_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    api.get(`/public/salons/nearby?user_lat=${lat}&user_lon=${lon}`, { headers })
+    api.get(`/public/salons/nearby?user_lat=${lat}&user_lon=${lon}${searchTerm ? `&search=${searchTerm}` : ''}`, { headers })
       .then(res => {
         setSalons(res.data);
         // Automatically ensure local storage has the cloud-synced favorites as truth
@@ -65,7 +67,7 @@ export default function MapView() {
       .finally(() => {
         setLoading(false);
       });
-  }, [favorites]);
+  }, [favorites, searchTerm]);
 
   const locateAndFetch = useCallback(() => {
     setLoading(true);
@@ -79,7 +81,8 @@ export default function MapView() {
           fetchSalons(lat, lon);
         },
         (error) => {
-          setLocationError('Please enable location services to find nearby salons.');
+          // Log error but don't show the annoying Zomato prompt as requested
+          console.log("Location error:", error);
           fetchSalons(coords.lat, coords.lon);
         }
       );
@@ -92,6 +95,10 @@ export default function MapView() {
   useEffect(() => {
     locateAndFetch();
   }, [locateAndFetch]);
+
+  useEffect(() => {
+    locateAndFetch();
+  }, [searchTerm]);
 
   // SMART POLLING SERVICE
   useEffect(() => {
@@ -155,20 +162,24 @@ export default function MapView() {
   };
 
   const sortedSalons = [...salons].sort((a, b) => {
-    const aFav = favorites.includes(a.id);
-    const bFav = favorites.includes(b.id);
-    if (aFav && !bFav) return -1;
-    if (!aFav && bFav) return 1;
-    return 0;
+    // Priority 1: Favorites
+    if (a.is_favorited && !b.is_favorited) return -1;
+    if (!a.is_favorited && b.is_favorited) return 1;
+    // Priority 2: Distance
+    return a.distance - b.distance;
   });
+
+  const filteredSalons = radiusFilter 
+    ? sortedSalons.filter(s => s.distance <= 10 || s.is_favorited)
+    : sortedSalons;
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '2rem' }}>
-      <div className="header" style={{ borderBottom: 'none', marginBottom: '1rem', padding: 0 }}>
-        <h2>Nearby Salons</h2>
-        <button className="btn btn-secondary" onClick={locateAndFetch} disabled={loading}>
+      <div className="header animate-fade-in" style={{ borderBottom: 'none', marginBottom: '1rem', padding: 0 }}>
+        <h2>{t('nearby_salons')}</h2>
+        <button className="btn btn-secondary hover:animate-pulse" onClick={locateAndFetch} disabled={loading}>
           <RefreshCw size={18} className={loading ? 'loader' : ''} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          Refresh Location
+          {t('refresh')}
         </button>
       </div>
 
@@ -177,16 +188,16 @@ export default function MapView() {
       {loading && !salons.length ? (
         <div style={{ padding: '4rem 0', textAlign: 'center' }}>
           <div className="loader" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-          <p className="mt-2 text-muted">Finding nearby salons via GPS...</p>
+          <p className="mt-2 text-muted">{t('finding_salons')}</p>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
           
           {/* LEFT PANEL: INTERACTIVE MAP */}
-          <div className="glass-panel" style={{ padding: 0, height: '650px', overflow: 'hidden', position: 'sticky', top: '2rem' }}>
+          <div className="glass-panel animate-scale-up" style={{ padding: 0, height: '650px', overflow: 'hidden', position: 'sticky', top: '2rem' }}>
             <MapContainer 
               center={[coords.lat, coords.lon]} 
-              zoom={13} 
+              zoom={15} 
               scrollWheelZoom={true} 
               style={{ height: '100%', width: '100%', borderRadius: '12px' }}
             >
@@ -210,15 +221,65 @@ export default function MapView() {
           </div>
 
           {/* RIGHT PANEL: SCROLLING CARDS */}
+          {/* Search Bar */}
+          <div className="glass-panel" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+              <input 
+                className="input-field" 
+                placeholder="Search by salon name..." 
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                style={{ paddingLeft: '2.8rem', height: '45px' }}
+              />
+            </div>
+            <button 
+              className={`btn ${radiusFilter ? 'btn-primary' : 'btn-secondary'}`} 
+              onClick={() => setRadiusFilter(!radiusFilter)}
+              style={{ height: '45px', minWidth: '45px', padding: 0 }}
+              title={radiusFilter ? "Show All Salons" : "Filter: Within 10km"}
+            >
+              <Filter size={20} />
+            </button>
+          </div>
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '700px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            {sortedSalons.map(salon => {
+            {filteredSalons.map((salon, index) => {
               const isFavorite = favorites.includes(salon.id);
+              const isClosed = !salon.is_active;
+              const delayClass = `delay-${((index % 4) + 1) * 100}`;
+              
               return (
-                <div key={salon.id} className="glass-panel" style={{ position: 'relative', overflow: 'hidden' }}>
+                <div key={salon.id} className={`glass-panel animate-slide-up ${delayClass}`} style={{ 
+                    position: 'relative', 
+                    overflow: 'hidden',
+                    filter: isClosed ? 'grayscale(1) opacity(0.8)' : 'none',
+                    transition: 'all 0.3s ease',
+                    border: (index === 0 && !isClosed && !locationError) ? '1px solid var(--primary)' : '1px solid var(--panel-border)',
+                    boxShadow: (index === 0 && !isClosed && !locationError) ? '0 0 20px rgba(129, 140, 248, 0.2)' : 'none'
+                }}>
                   <div style={{ 
                     position: 'absolute', top: 0, left: 0, height: '4px', width: '100%', 
-                    background: salon.status === 'AVAILABLE' ? 'var(--success)' : (salon.current_count > 5 ? 'var(--danger)' : 'var(--warning)') 
+                    background: isClosed ? 'var(--danger)' : (salon.status === 'AVAILABLE' ? 'var(--success)' : (salon.current_count > 5 ? 'var(--danger)' : 'var(--warning)')) 
                   }}></div>
+                  
+                  {isClosed && (
+                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'var(--danger)', color: '#fff', fontSize: '0.7rem', fontWeight: 'bold', padding: '0.2rem', textAlign: 'center', letterSpacing: '1px' }}>
+                          CLOSED FOR TODAY
+                      </div>
+                  )}
+
+                  {salon.is_favorited && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                      <Heart size={14} fill="var(--accent)" /> MY FAVORITE LIST
+                    </div>
+                  )}
+
+                  {index === 0 && !isClosed && !locationError && !salon.is_favorited && (
+                      <div className="shimmer-effect" style={{ background: 'var(--primary)', color: '#fff', display: 'inline-block', padding: '0.2rem 0.8rem', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '50px', marginBottom: '1rem', letterSpacing: '0.5px' }}>
+                          NEAREST TO YOU
+                      </div>
+                  )}
                   
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -237,15 +298,33 @@ export default function MapView() {
                         />
                       </button>
                     </div>
-                    <span className={`status-badge ${salon.status === 'AVAILABLE' ? 'status-active' : 'status-inactive'}`}>
-                      <div className="status-dot"></div>
-                      {salon.status}
-                    </span>
+                    {isClosed ? (
+                      <span className="status-badge status-inactive">
+                        <div className="status-dot"></div>
+                        OFFLINE
+                      </span>
+                    ) : (
+                      <span className={`status-badge ${salon.status === 'AVAILABLE' ? 'status-active' : 'status-inactive'}`}>
+                        <div className="status-dot"></div>
+                        {salon.status}
+                      </span>
+                    )}
                   </div>
 
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
-                    <Navigation size={16} />
-                    <span>{t('distance_km', { dist: formatLocalNum(salon.distance, i18n.language) })}</span>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
+                      <Navigation size={16} />
+                      <span>{locationError ? 'Location unknown' : t('distance_km', { dist: formatLocalNum(salon.distance, i18n.language) })}</span>
+                    </div>
+                    <a 
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="btn btn-secondary"
+                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}
+                    >
+                      Get Directions
+                    </a>
                   </div>
 
                   <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
@@ -271,7 +350,7 @@ export default function MapView() {
 
             {salons.length === 0 && !loading && (
               <div className="glass-panel text-center">
-                <p className="text-muted">No active salons found near you.</p>
+                <p className="text-muted">{t('no_active_salons')}</p>
               </div>
             )}
           </div>

@@ -46,9 +46,16 @@ class Saloon(Base):
     latitude = Column(Float)
     longitude = Column(Float)
 
-    # ✅ NEW: Shop Status (Startup-এর জন্য মাস্ট)
-    # মালিক লগইন করে দোকান ওপেন করলে এটা True হবে, না হলে False
+    # ✅ NEW: Shop Status (Must-have for startups)
+    # Set to True when owner opens the shop, otherwise False
     is_active = Column(Boolean, default=False)
+    
+    # Anti-Spam Verification
+    is_approved = Column(Boolean, default=False)
+    storefront_photo_url = Column(String(255), nullable=True)
+    
+    # 🎥 CCTV Integration (RTSP URL)
+    camera_url = Column(String(255), nullable=True)
 
 class LiveStatus(Base):
     __tablename__ = "live_status"
@@ -64,5 +71,13 @@ class Analytics(Base):
     id = Column(Integer, primary_key=True)
     saloon_id = Column(Integer, ForeignKey("saloons.id"))
     total_customers_today = Column(Integer, default=0)
-    peak_hour = Column(String(50)) # কোন সময় ভিড় বেশি ছিল
+    peak_hour = Column(String(50)) # Peak hour with highest crowd
     date = Column(DateTime, default=datetime.utcnow)
+
+class Barber(Base):
+    __tablename__ = "barbers"
+    id = Column(Integer, primary_key=True)
+    saloon_id = Column(Integer, ForeignKey("saloons.id"))
+    name = Column(String(100))
+    specialty = Column(String(100))
+    is_available = Column(Boolean, default=True)

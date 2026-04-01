@@ -1,6 +1,7 @@
 import { Routes, Route, Link, useNavigate } from 'react-router-dom';
-import { Scissors } from 'lucide-react';
+import { Scissors, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { useState, useEffect } from 'react';
 import Home from './pages/Home';
 import MapView from './pages/MapView';
 import OwnerLogin from './pages/OwnerLogin';
@@ -8,10 +9,27 @@ import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import CustomerLogin from './pages/CustomerLogin';
 import SalonDetail from './pages/SalonDetail';
+import Admin from './pages/Admin';
 
 function App() {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
+  
+  // Theme Engine
+  const [theme, setTheme] = useState(localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    if (theme === 'light') {
+      document.body.classList.add('light-mode');
+    } else {
+      document.body.classList.remove('light-mode');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
+  };
 
   const toggleLanguage = () => {
     i18n.changeLanguage(i18n.language.startsWith('bn') ? 'en' : 'bn');
@@ -19,28 +37,44 @@ function App() {
 
   return (
     <div className="container">
-      <header className="header" style={{ padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Link to="/" className="header-logo" style={{ textDecoration: 'none' }}>
+      <header className="header">
+        <Link to="/" className="header-logo">
           <Scissors size={28} />
           <span>{t('app_name')}</span>
         </Link>
-        <nav className="nav-links" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <nav className="nav-links">
           <Link to="/map">{t('nav_find')}</Link>
           <Link to="/customer/login" style={{ color: 'var(--primary)' }}>{t('nav_customer_login')}</Link>
           <Link to="/register" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('nav_register')}</Link>
           
           <button 
+            onClick={toggleTheme} 
+            style={{ 
+              background: 'transparent', 
+              border: 'none', 
+              color: 'var(--text-main)', 
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0.4rem'
+            }}
+            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
+          >
+            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
+
+          <button 
             onClick={toggleLanguage} 
             style={{ 
-              background: 'rgba(255,255,255,0.1)', 
-              border: '1px solid rgba(255,255,255,0.2)', 
-              color: '#fff', 
+              background: 'var(--panel-bg)', 
+              border: '1px solid var(--panel-border)', 
+              color: 'var(--text-main)', 
               padding: '0.4rem 0.8rem', 
               borderRadius: '8px', 
               cursor: 'pointer',
               fontSize: '0.9rem',
               fontWeight: 'bold',
-              backdropFilter: 'blur(12px)'
             }}
           >
             {i18n.language.startsWith('bn') ? 'EN' : 'বাং'}
@@ -61,6 +95,7 @@ function App() {
           <Route path="/customer/login" element={<CustomerLogin />} />
           <Route path="/owner/login" element={<OwnerLogin />} />
           <Route path="/owner/dashboard" element={<Dashboard />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </main>
     </div>
