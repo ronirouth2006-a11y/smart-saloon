@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean, Table
 from sqlalchemy.orm import relationship
 from database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Association Table for Many-to-Many
 user_favorites = Table(
@@ -18,7 +18,7 @@ class User(Base):
     email = Column(String(100), unique=True)
     password = Column(String(200))
     is_customer = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     
     favorites = relationship("Saloon", secondary=user_favorites)
 
@@ -30,7 +30,7 @@ class Owner(Base):
     email = Column(String(100), unique=True)
     password = Column(String(200))
     phone = Column(String(20))
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Saloon(Base):
     __tablename__ = "saloons"
@@ -57,6 +57,12 @@ class Saloon(Base):
     # 🎥 CCTV Integration (RTSP URL)
     camera_url = Column(String(255), nullable=True)
 
+    # ➕ Manual Offset for hidden customers
+    manual_offset = Column(Integer, default=0)
+
+    # ❌ Rejection Status
+    is_rejected = Column(Boolean, default=False)
+
 class LiveStatus(Base):
     __tablename__ = "live_status"
 
@@ -64,7 +70,7 @@ class LiveStatus(Base):
     saloon_id = Column(Integer, ForeignKey("saloons.id"))
     current_count = Column(Integer)
     status = Column(String(20)) # Green, Orange, Red
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
 class Analytics(Base):
     __tablename__ = "analytics"
@@ -72,7 +78,7 @@ class Analytics(Base):
     saloon_id = Column(Integer, ForeignKey("saloons.id"))
     total_customers_today = Column(Integer, default=0)
     peak_hour = Column(String(50)) # Peak hour with highest crowd
-    date = Column(DateTime, default=datetime.utcnow)
+    date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 class Barber(Base):
     __tablename__ = "barbers"

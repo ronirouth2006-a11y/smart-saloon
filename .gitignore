@@ -9,6 +9,20 @@ venv/
 ENV/
 env/
 saloon.db
+sql_app.db
+test.db
+*.db
+
+# Test Outputs
+pytest_out.txt
+pytest_output.txt
+pytest_output_final.txt
+test_output.txt
+error_log.txt
+error_log2.txt
+tmp/
+static/uploads/
+
 
 # YOLOv8 Models & Weights
 *.pt

@@ -4,7 +4,7 @@ from database import SessionLocal
 from models import LiveStatus
 import models
 from schemas import CameraUpdate
-from datetime import datetime
+from datetime import datetime, timezone
 from config import settings
 
 router = APIRouter()
@@ -42,7 +42,7 @@ def update_count(
     if record:
         record.current_count = data.people
         record.status = status
-        record.updated_at = datetime.utcnow()
+        record.updated_at = datetime.now(timezone.utc)
     else:
         record = LiveStatus(
             saloon_id=data.saloon_id,
@@ -60,7 +60,10 @@ def update_count(
         analytics = models.Analytics(saloon_id=data.saloon_id)
         db.add(analytics)
 
-    analytics.total_customers_today += 1
+    if analytics.total_customers_today is None:
+        analytics.total_customers_today = 1
+    else:
+        analytics.total_customers_today += 1
 
     db.commit()
 

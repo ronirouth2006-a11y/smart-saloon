@@ -1,9 +1,9 @@
 from passlib.context import CryptContext
 from jose import jwt, JWTError
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-
+import hashlib
 # Configuration
 from config import settings
 
@@ -16,20 +16,18 @@ pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 # 1. Password Security
 def hash_password(password: str):
     # Passlib bcrypt throws an error if the password > 72 chars
-    # Let's cleanly slice to 72 and confirm it works
-    if len(password) > 72:
-        password = password[:72]
-    return pwd_context.hash(password)
+    # We pre-hash with SHA256 to guarantee smaller, fixed length (64 hex characters)
+    pre_hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return pwd_context.hash(pre_hashed)
 
-def verify_password(password, hashed):
-    if len(password) > 72:
-        password = password[:72]
-    return pwd_context.verify(password, hashed)
+def verify_password(password: str, hashed: str):
+    pre_hashed = hashlib.sha256(password.encode('utf-8')).hexdigest()
+    return pwd_context.verify(pre_hashed, hashed)
 
 # 2. Token Generation
 def create_token(data: dict):
     to_encode = data.copy()
-    expire = datetime.utcnow() + timedelta(hours=24)
+    expire = datetime.now(timezone.utc) + timedelta(hours=24)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 

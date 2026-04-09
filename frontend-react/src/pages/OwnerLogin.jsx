@@ -30,15 +30,24 @@ export default function OwnerLogin() {
         email,
         password
       });
-      // Simple mock state, since the backend doesn't seem to return a JWT in your base repo.
-      // We will store the owner details in localStorage.
+      // Store both token and salon info
       localStorage.setItem('owner', JSON.stringify({
         email: email,
-        id: response.data.saloon_id || 1, // Fallback if backend doesn't send
+        id: response.data.saloon_id,
+        token: response.data.access_token
       }));
       navigate('/owner/dashboard');
     } catch (err) {
-      setError(err.response?.data?.detail || 'Invalid credentials');
+      if (err.response?.status === 403) {
+        // Store credentials so RegistrationPending can poll
+        localStorage.setItem('pendingOwnerCredentials', JSON.stringify({
+          email,
+          password
+        }));
+        navigate('/registration-pending');
+      } else {
+        setError(err.response?.data?.detail || 'Invalid credentials');
+      }
     } finally {
       setLoading(false);
     }

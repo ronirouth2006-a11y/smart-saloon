@@ -58,6 +58,44 @@ body {
   overflow-x: hidden;
 }
 
+/* 🟢 Heartbeat Pulse Animation */
+@keyframes mapPulse {
+  0% { transform: scale(0.5); opacity: 0.8; }
+  100% { transform: scale(3.5); opacity: 0; }
+}
+
+.marker-pulse-container {
+  position: relative;
+  width: 25px;
+  height: 41px;
+}
+
+.marker-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background: rgba(129, 140, 248, 0.4);
+  border-radius: 50%;
+  z-index: -1;
+  pointer-events: none;
+}
+
+.marker-pulse::after {
+  content: '';
+  position: absolute;
+  top: 0; left: 0;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  animation: mapPulse 2s infinite ease-out;
+}
+
+.pulse-green::after { background: var(--success); }
+.pulse-orange::after { background: var(--warning); }
+.pulse-red::after { background: var(--danger); animation-duration: 1.2s; }
+
 /* Animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
@@ -400,6 +438,50 @@ a:hover {
   gap: 2rem;
 }
 
+/* Split View Dashboard Layout (Airbnb / Zomato Style) */
+.split-dashboard {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  gap: 1.5rem;
+  height: calc(100vh - 140px); /* Height minus header spacing */
+  align-items: stretch;
+}
+
+.split-map-container {
+  position: sticky;
+  top: 1rem;
+  height: calc(100vh - 140px);
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+  border: 1px solid var(--panel-border);
+}
+
+.split-list-container {
+  height: calc(100vh - 140px);
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+/* Custom Scrollbar for Sidebar */
+.split-list-container::-webkit-scrollbar {
+  width: 6px;
+}
+.split-list-container::-webkit-scrollbar-track {
+  background: rgba(0,0,0,0.1);
+  border-radius: 4px;
+}
+.split-list-container::-webkit-scrollbar-thumb {
+  background: var(--panel-border);
+  border-radius: 4px;
+}
+.split-list-container::-webkit-scrollbar-thumb:hover {
+  background: var(--primary);
+}
+
 /* Text Utilities */
 .text-center { text-align: center; }
 .text-gradient {
@@ -509,6 +591,32 @@ body.light-mode .bg-map-pattern::before {
   .grid-2, .grid-3 {
     grid-template-columns: 1fr;
     gap: 1.5rem;
+  }
+  
+  .split-dashboard {
+    grid-template-columns: 1fr;
+    height: auto;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .split-map-container {
+    position: relative;
+    top: 0;
+    height: 60vh;
+    min-height: 400px;
+    z-index: 1;
+  }
+  
+  .split-list-container {
+    height: auto;
+    overflow-y: visible;
+    z-index: 2;
+    margin-top: -20px; /* Slight overlap for bottom sheet aesthetic */
+    background: var(--bg-dark);
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem 0.5rem;
+    box-shadow: 0 -10px 30px rgba(0,0,0,0.5);
   }
   
   .container {

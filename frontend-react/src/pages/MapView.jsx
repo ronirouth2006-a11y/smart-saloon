@@ -1,11 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Users, Clock, Navigation, Heart } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { RefreshCw, Users, Clock, Navigation, Heart, Search, Filter, MapPin, ChevronRight, Star } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
 import { formatLocalNum, formatLocalTime } from '../utils/locale';
+
+// Custom hook for debouncing search input
+function useDebounce(value, delay) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+  useEffect(() => {
+    const handler = setTimeout(() => setDebouncedValue(value), delay);
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+  return debouncedValue;
+}
 
 // Fix for default Leaflet markers in React
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -27,6 +38,67 @@ function ChangeView({ center }) {
   return null;
 }
 
+// 🟢 Custom Pulsing Marker Component
+const PulsingMarker = ({ salon, isHovered, onClick }) => {
+  const { t } = useTranslation();
+  
+  // Logic for pulse color
+  let pulseClass = '';
+  if (salon.status !== 'OFFLINE' && salon.status !== 'NO LIVE FEED') {
+    if (salon.current_count <= 2) pulseClass = 'pulse-green';
+    else if (salon.current_count <= 4) pulseClass = 'pulse-orange';
+    else pulseClass = 'pulse-red';
+  }
+
+  const customIcon = L.divIcon({
+    className: 'custom-div-icon',
+    html: `
+      <div class="marker-pulse-container">
+        ${pulseClass ? `<div class="marker-pulse ${pulseClass}"></div>` : ''}
+        <img src="${markerIcon}" style="width: 25px; height: 41px; position: relative; z-index: 2;" />
+      </div>
+    `,
+    iconSize: [25, 41],
+    iconAnchor: [12, 41],
+    popupAnchor: [1, -34],
+  });
+
+  return (
+    <Marker 
+      position={[salon.latitude, salon.longitude]} 
+      icon={customIcon}
+      zIndexOffset={isHovered ? 1000 : 0}
+      eventHandlers={{ click: onClick }}
+    >
+      <Popup>
+        <div style={{ padding: '0.4rem', minWidth: '120px' }}>
+          <strong style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem' }}>{salon.name}</strong>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ 
+              color: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'var(--text-muted)' : 'var(--primary)', 
+              fontWeight: 'bold',
+              fontSize: '0.85rem'
+            }}>
+              { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') 
+                ? t('wait_time_na') 
+                : `${salon.wait_time}m Wait` 
+              }
+            </span>
+            {salon.status !== 'OFFLINE' && salon.status !== 'NO LIVE FEED' && (
+              <div style={{ 
+                width: '8px', 
+                height: '8px', 
+                borderRadius: '50%', 
+                background: salon.current_count >= 5 ? 'var(--danger)' : 'var(--success)' 
+              }}></div>
+            )}
+          </div>
+        </div>
+      </Popup>
+    </Marker>
+  );
+};
+
 export default function MapView() {
   const { t, i18n } = useTranslation();
   const [salons, setSalons] = useState([]);
@@ -34,26 +106,31 @@ export default function MapView() {
   const [locationError, setLocationError] = useState('');
   const [coords, setCoords] = useState({ lat: 22.5726, lon: 88.3639 }); // Default Kolkata
   const [searchTerm, setSearchTerm] = useState('');
-  const [radiusFilter, setRadiusFilter] = useState(false); // false = All, true = 10km
-  const [notified, setNotified] = useState(new Set());
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [hoveredSalonId, setHoveredSalonId] = useState(null);
+  
+  // Advanced Filter States
+  const [radiusFilter, setRadiusFilter] = useState(false);
+  const [openNowFilter, setOpenNowFilter] = useState(false);
+  const [sortBy, setSortBy] = useState('distance'); // 'distance' or 'wait'
+  
+  const debouncedSearch = useDebounce(searchTerm, 400);
   
   const [favorites, setFavorites] = useState(() => {
     const saved = localStorage.getItem('favorite_salons');
     return saved ? JSON.parse(saved) : [];
   });
 
-  const fetchSalons = useCallback((lat, lon) => {
+  const fetchSalons = useCallback((lat, lon, searchVal) => {
     setLoading(true);
     const token = localStorage.getItem('customer_token');
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-    api.get(`/public/salons/nearby?user_lat=${lat}&user_lon=${lon}${searchTerm ? `&search=${searchTerm}` : ''}`, { headers })
+    api.get(`/public/salons/nearby?user_lat=${lat}&user_lon=${lon}${searchVal ? `&search=${searchVal}` : ''}`, { headers })
       .then(res => {
         setSalons(res.data);
-        // Automatically ensure local storage has the cloud-synced favorites as truth
         const cloudFavorites = res.data.filter(s => s.is_favorited).map(s => s.id);
         if (token && cloudFavorites.length > 0) {
-            // Unify local state with cloud truth to prevent desync
             const merged = Array.from(new Set([...favorites, ...cloudFavorites]));
             if (merged.length !== favorites.length) {
                 setFavorites(merged);
@@ -61,301 +138,347 @@ export default function MapView() {
             }
         }
       })
-      .catch(err => {
-        console.error(err);
-      })
-      .finally(() => {
-        setLoading(false);
-      });
-  }, [favorites, searchTerm]);
+      .catch(err => console.error(err))
+      .finally(() => setLoading(false));
+  }, [favorites]);
 
   const locateAndFetch = useCallback(() => {
     setLoading(true);
-    setLocationError('');
     if ('geolocation' in navigator) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
           const lat = position.coords.latitude;
           const lon = position.coords.longitude;
           setCoords({ lat, lon });
-          fetchSalons(lat, lon);
+          fetchSalons(lat, lon, debouncedSearch);
         },
-        (error) => {
-          // Log error but don't show the annoying Zomato prompt as requested
-          console.log("Location error:", error);
-          fetchSalons(coords.lat, coords.lon);
-        }
+        () => fetchSalons(coords.lat, coords.lon, debouncedSearch),
+        { timeout: 5000 }
       );
     } else {
-      setLocationError('Geolocation is not supported by your browser.');
-      fetchSalons(coords.lat, coords.lon);
+      fetchSalons(coords.lat, coords.lon, debouncedSearch);
     }
-  }, [fetchSalons, coords.lat, coords.lon]);
+  }, [fetchSalons, coords.lat, coords.lon, debouncedSearch]);
 
   useEffect(() => {
     locateAndFetch();
-  }, [locateAndFetch]);
+  }, [debouncedSearch]);
 
+  // BACKGROUND GLOBAL POLLING SERVICE (Every 10s)
   useEffect(() => {
-    locateAndFetch();
-  }, [searchTerm]);
-
-  // SMART POLLING SERVICE
-  useEffect(() => {
-    if (favorites.length === 0) return;
+    if (!coords.lat || !coords.lon) return;
 
     const interval = setInterval(() => {
       const token = localStorage.getItem('customer_token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      api.get(`/public/salons/nearby?user_lat=${coords.lat}&user_lon=${coords.lon}`, { headers })
+      api.get(`/public/salons/nearby?user_lat=${coords.lat}&user_lon=${coords.lon}${debouncedSearch ? '&search='+debouncedSearch : ''}`, { headers })
         .then(res => {
           const newData = res.data;
-          setSalons(newData); 
-
-          newData.forEach(salon => {
-            if (favorites.includes(salon.id)) {
-              if (salon.wait_time < 5) {
-                if (!notified.has(salon.id) && Notification.permission === 'granted') {
-                  new Notification('Smart Saloon Alert', {
-                    body: `Hey! ${salon.name} is empty right now. Head over to skip the wait!`,
-                    icon: '/vite.svg'
-                  });
-                  setNotified(prev => new Set([...prev, salon.id]));
-                }
-              } else if (salon.wait_time >= 5 && notified.has(salon.id)) {
-                setNotified(prev => {
-                  const next = new Set(prev);
-                  next.delete(salon.id);
-                  return next;
-                });
-              }
+          setSalons(prev => {
+            // Smart Re-validation: Only update if the data actually changed
+            if (JSON.stringify(prev) === JSON.stringify(newData)) {
+              return prev; 
             }
+            return newData;
           });
         })
         .catch(err => console.error("Poll error", err));
-    }, 60000);
+    }, 10000); // 10s polling
 
     return () => clearInterval(interval);
-  }, [coords, favorites, notified]);
+  }, [coords.lat, coords.lon, debouncedSearch]);
 
   const toggleFavorite = (id) => {
-    if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
-      Notification.requestPermission();
-    }
-
     setFavorites(prev => {
       const newFavs = prev.includes(id) ? prev.filter(fId => fId !== id) : [...prev, id];
       localStorage.setItem('favorite_salons', JSON.stringify(newFavs));
-      
       const token = localStorage.getItem('customer_token');
       if (token) {
-        // Fire and forget background cloud push
-        api.post('/customer/favorites/sync', 
-            { salon_ids: newFavs }, 
-            { headers: { Authorization: `Bearer ${token}` } }
-        ).catch(err => console.error("Cloud Sync Failed", err));
+        api.post('/customer/favorites/sync', { salon_ids: newFavs }, { headers: { Authorization: `Bearer ${token}` } });
       }
-      
       return newFavs;
     });
   };
 
-  const sortedSalons = [...salons].sort((a, b) => {
-    // Priority 1: Favorites
-    if (a.is_favorited && !b.is_favorited) return -1;
-    if (!a.is_favorited && b.is_favorited) return 1;
-    // Priority 2: Distance
-    return a.distance - b.distance;
-  });
+  const processedSalons = useMemo(() => {
+    let result = [...salons];
+    
+    // Apply Radius Filter
+    if (radiusFilter) {
+      result = result.filter(s => s.distance <= 10 || favorites.includes(s.id));
+    }
+    
+    // Apply Open Now Filter
+    if (openNowFilter) {
+      result = result.filter(s => s.status !== 'OFFLINE' && s.status !== 'NO LIVE FEED');
+    }
 
-  const filteredSalons = radiusFilter 
-    ? sortedSalons.filter(s => s.distance <= 10 || s.is_favorited)
-    : sortedSalons;
+    // Apply Sorting
+    result.sort((a, b) => {
+      const aFav = favorites.includes(a.id);
+      const bFav = favorites.includes(b.id);
+      if (aFav && !bFav) return -1;
+      if (!aFav && bFav) return 1;
+      
+      if (sortBy === 'wait') return a.wait_time - b.wait_time;
+      return a.distance - b.distance;
+    });
+
+    return result;
+  }, [salons, radiusFilter, sortBy, favorites]);
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '2rem' }}>
-      <div className="header animate-fade-in" style={{ borderBottom: 'none', marginBottom: '1rem', padding: 0 }}>
-        <h2>{t('nearby_salons')}</h2>
-        <button className="btn btn-secondary hover:animate-pulse" onClick={locateAndFetch} disabled={loading}>
-          <RefreshCw size={18} className={loading ? 'loader' : ''} style={{ animation: loading ? 'spin 1s linear infinite' : 'none' }} />
-          {t('refresh')}
-        </button>
+    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '0 1rem' }}>
+      <div className="header animate-fade-in" style={{ borderBottom: 'none', marginBottom: '0.5rem', padding: '1rem 2rem' }}>
+        <h2 style={{ margin: 0 }}>{t('nearby_salons')}</h2>
       </div>
 
-      {locationError && <p className="mb-3" style={{ color: 'var(--warning)' }}>{locationError}</p>}
-
-      {loading && !salons.length ? (
-        <div style={{ padding: '4rem 0', textAlign: 'center' }}>
-          <div className="loader" style={{ width: '40px', height: '40px', borderWidth: '4px' }}></div>
-          <p className="mt-2 text-muted">{t('finding_salons')}</p>
+      <div className="split-dashboard animate-fade-in">
+        
+        {/* LEFT PANEL: SMART MAP */}
+        <div className="split-map-container">
+          <MapContainer 
+            center={[coords.lat, coords.lon]} 
+            zoom={15} 
+            style={{ height: '100%', width: '100%' }}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+            <ChangeView center={[coords.lat, coords.lon]} />
+            {processedSalons.map(salon => (
+              <PulsingMarker 
+                key={salon.id} 
+                salon={salon} 
+                isHovered={hoveredSalonId === salon.id} 
+              />
+            ))}
+          </MapContainer>
         </div>
-      ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+
+        {/* RIGHT PANEL: RESULTS SIDEBAR */}
+        <div className="split-list-container">
           
-          {/* LEFT PANEL: INTERACTIVE MAP */}
-          <div className="glass-panel animate-scale-up" style={{ padding: 0, height: '650px', overflow: 'hidden', position: 'sticky', top: '2rem' }}>
-            <MapContainer 
-              center={[coords.lat, coords.lon]} 
-              zoom={15} 
-              scrollWheelZoom={true} 
-              style={{ height: '100%', width: '100%', borderRadius: '12px' }}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <ChangeView center={[coords.lat, coords.lon]} />
-              
-              {/* Plotting all Salons dynamically */}
-              {salons.map(salon => (
-                <Marker key={`marker-${salon.id}`} position={[salon.latitude, salon.longitude]}>
-                  <Popup>
-                    <strong style={{ fontSize: '1.1rem' }}>{salon.name}</strong><br/>
-                    Status: {salon.status}<br/>
-                    <strong>{salon.wait_time}m</strong> est. wait
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          </div>
-
-          {/* RIGHT PANEL: SCROLLING CARDS */}
-          {/* Search Bar */}
-          <div className="glass-panel" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative', flex: 1 }}>
-              <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-              <input 
-                className="input-field" 
-                placeholder="Search by salon name..." 
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                style={{ paddingLeft: '2.8rem', height: '45px' }}
-              />
+          {/* SEARCH & FILTERS SECTION */}
+          <div className="glass-panel" style={{ padding: '1rem', position: 'sticky', top: 0, zIndex: 10, borderRadius: '15px' }}>
+            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+               <div style={{ position: 'relative', flex: 1 }}>
+                  <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                  <input 
+                    className="input-field" 
+                    placeholder="Search for saloons..." 
+                    value={searchTerm}
+                    onChange={e => setSearchTerm(e.target.value)}
+                    style={{ paddingLeft: '2.8rem', height: '42px', fontSize: '0.95rem' }}
+                  />
+               </div>
+               <button 
+                 className={`btn ${isFilterOpen ? 'btn-primary' : 'btn-secondary'}`}
+                 onClick={() => setIsFilterOpen(!isFilterOpen)}
+                 style={{ height: '42px', minWidth: '42px', padding: 0 }}
+               >
+                 <Filter size={20} />
+               </button>
+               
+               {/* 🔄 MODERN REFRESH BUTTON (Upper Area) */}
+               <button 
+                 className="btn btn-secondary" 
+                 onClick={locateAndFetch} 
+                 disabled={loading}
+                 style={{ height: '42px', minWidth: '42px', padding: 0, borderRadius: '12px' }}
+                 title={t('refresh')}
+               >
+                 <RefreshCw size={18} className={loading ? 'spin' : ''} />
+               </button>
             </div>
-            <button 
-              className={`btn ${radiusFilter ? 'btn-primary' : 'btn-secondary'}`} 
-              onClick={() => setRadiusFilter(!radiusFilter)}
-              style={{ height: '45px', minWidth: '45px', padding: 0 }}
-              title={radiusFilter ? "Show All Salons" : "Filter: Within 10km"}
-            >
-              <Filter size={20} />
-            </button>
+
+            {/* Trending Quick Chips (Zomato Style) */}
+            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingTop: '0.8rem', paddingBottom: '0.2rem', scrollbarWidth: 'none' }}>
+               <button 
+                 className={`btn ${radiusFilter ? 'btn-primary' : 'btn-secondary'}`} 
+                 style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }} 
+                 onClick={() => setRadiusFilter(!radiusFilter)}
+               >
+                 📍 Near Me
+               </button>
+               <button 
+                 className={`btn ${sortBy === 'wait' ? 'btn-primary' : 'btn-secondary'}`} 
+                 style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }} 
+                 onClick={() => setSortBy(sortBy === 'wait' ? 'distance' : 'wait')}
+               >
+                 ⏳ Fastest Wait
+               </button>
+                <button 
+                  className={`btn ${searchTerm.toLowerCase() === 'haircut' ? 'btn-primary' : 'btn-secondary'}`} 
+                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }}
+                  onClick={() => setSearchTerm(searchTerm.toLowerCase() === 'haircut' ? '' : 'Haircut')}
+                >
+                  💇‍♂️ Haircut
+                </button>
+                <button 
+                  className={`btn ${openNowFilter ? 'btn-primary' : 'btn-secondary'}`} 
+                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }}
+                  onClick={() => setOpenNowFilter(!openNowFilter)}
+                >
+                  🟢 Open Now
+                </button>
+            </div>
+
+            <AnimatePresence>
+              {isFilterOpen && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }} 
+                  exit={{ height: 0, opacity: 0 }}
+                  style={{ overflow: 'hidden' }}
+                >
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', paddingTop: '1rem' }}>
+                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
+                       ⭐ 4+ Rating
+                     </button>
+                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
+                       Men
+                     </button>
+                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
+                       Women
+                     </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', maxHeight: '700px', overflowY: 'auto', paddingRight: '0.5rem' }}>
-            {filteredSalons.map((salon, index) => {
-              const isFavorite = favorites.includes(salon.id);
-              const isClosed = !salon.is_active;
-              const delayClass = `delay-${((index % 4) + 1) * 100}`;
-              
-              return (
-                <div key={salon.id} className={`glass-panel animate-slide-up ${delayClass}`} style={{ 
-                    position: 'relative', 
-                    overflow: 'hidden',
-                    filter: isClosed ? 'grayscale(1) opacity(0.8)' : 'none',
-                    transition: 'all 0.3s ease',
-                    border: (index === 0 && !isClosed && !locationError) ? '1px solid var(--primary)' : '1px solid var(--panel-border)',
-                    boxShadow: (index === 0 && !isClosed && !locationError) ? '0 0 20px rgba(129, 140, 248, 0.2)' : 'none'
-                }}>
-                  <div style={{ 
-                    position: 'absolute', top: 0, left: 0, height: '4px', width: '100%', 
-                    background: isClosed ? 'var(--danger)' : (salon.status === 'AVAILABLE' ? 'var(--success)' : (salon.current_count > 5 ? 'var(--danger)' : 'var(--warning)')) 
-                  }}></div>
-                  
-                  {isClosed && (
-                      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', background: 'var(--danger)', color: '#fff', fontSize: '0.7rem', fontWeight: 'bold', padding: '0.2rem', textAlign: 'center', letterSpacing: '1px' }}>
-                          CLOSED FOR TODAY
+          {/* LIST OF SALONS */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem' }}>
+            <AnimatePresence>
+              {processedSalons.map((salon, index) => {
+                const isFavorite = favorites.includes(salon.id);
+                const isHovered = hoveredSalonId === salon.id;
+                
+                return (
+                  <motion.div
+                    key={salon.id}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.04 }}
+                    onMouseEnter={() => setHoveredSalonId(salon.id)}
+                    onMouseLeave={() => setHoveredSalonId(null)}
+                    className={`glass-panel ${salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED' ? 'offline-card' : ''}`}
+                    style={{ 
+                      padding: '1rem', 
+                      cursor: 'pointer',
+                      border: isHovered ? '1px solid var(--primary)' : '1px solid var(--panel-border)',
+                      boxShadow: isHovered ? '0 8px 24px rgba(129, 140, 248, 0.2)' : 'none',
+                      borderRadius: '15px',
+                      opacity: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 0.7 : 1,
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <h3 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{salon.name}</h3>
+                          {isFavorite && <Heart size={14} fill="var(--danger)" color="var(--danger)" className="animate-pulse" />}
+                        </div>
+                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{salon.location}</p>
                       </div>
-                  )}
-
-                  {salon.is_favorited && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--accent)', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
-                      <Heart size={14} fill="var(--accent)" /> MY FAVORITE LIST
+                      <div className={`status-badge ${salon.status === 'AVAILABLE' ? 'status-active' : 'status-inactive'}`} style={{ 
+                        height: 'fit-content',
+                        backgroundColor: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'rgba(0,0,0,0.3)' : '',
+                        borderColor: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'var(--panel-border)' : ''
+                      }}>
+                         <div className="status-dot"></div>
+                         {salon.status}
+                      </div>
                     </div>
-                  )}
 
-                  {index === 0 && !isClosed && !locationError && !salon.is_favorited && (
-                      <div className="shimmer-effect" style={{ background: 'var(--primary)', color: '#fff', display: 'inline-block', padding: '0.2rem 0.8rem', fontSize: '0.75rem', fontWeight: 'bold', borderRadius: '50px', marginBottom: '1rem', letterSpacing: '0.5px' }}>
-                          NEAREST TO YOU
+                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.6rem', marginTop: '0.8rem' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <Clock size={16} color="var(--accent)" />
+                        <div style={{ width: '100%' }}>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                            <motion.span
+                              key={salon.wait_time}
+                              initial={{ scale: 1.3, color: 'var(--primary)' }}
+                              animate={{ scale: 1, color: 'inherit' }}
+                              transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 15 }}
+                              style={{ display: 'inline-block' }}
+                            >
+                              { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') 
+                                ? t('wait_time_na') 
+                                : i18n.language.startsWith('bn') 
+                                  ? `${formatLocalNum(salon.wait_time, 'bn')} মিনিট অপেক্ষা` 
+                                  : `${salon.wait_time}m Wait` 
+                              }
+                            </motion.span>
+                            {/* Live Count Badge */}
+                            {salon.status !== 'OFFLINE' && salon.status !== 'NO LIVE FEED' && (
+                              <motion.span 
+                                key={salon.current_count}
+                                initial={{ scale: 1.4 }}
+                                animate={{ scale: 1 }}
+                                transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 15 }}
+                                style={{ 
+                                  fontSize: '0.65rem', 
+                                  padding: '0.1rem 0.4rem', 
+                                  borderRadius: '50px', 
+                                  background: salon.current_count >= 5 ? 'var(--danger)' : 'var(--success)', 
+                                  color: '#fff',
+                                  marginLeft: '0.4rem',
+                                  whiteSpace: 'nowrap',
+                                  display: 'inline-block'
+                                }}>
+                                {t('live_count', { count: formatLocalNum(salon.current_count, i18n.language) })}
+                              </motion.span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                            {i18n.language.startsWith('bn') ? 'আনুমানিক সময়' : 'Estimated wait time'}
+                          </div>
+                        </div>
                       </div>
-                  )}
-                  
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                      <h3 style={{ fontSize: '1.25rem', margin: 0 }}>{salon.name}</h3>
-                      <button 
-                        onClick={() => toggleFavorite(salon.id)}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0', display: 'flex' }}
-                        title={isFavorite ? "Remove from favorites" : "Add to favorites"}
+                      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <MapPin size={16} color="var(--primary)" />
+                        <div>
+                          <div style={{ fontSize: '0.85rem', fontWeight: '800' }}>{formatLocalNum(salon.distance.toFixed(1), i18n.language)} km</div>
+                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
+                            {i18n.language.startsWith('bn') ? 'আপনার থেকে দুরে' : 'Away from you'}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+                      <a 
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="btn btn-secondary"
+                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.4rem', borderRadius: '10px' }}
                       >
-                        <Heart 
-                          size={22} 
-                          fill={isFavorite ? 'var(--danger)' : 'transparent'} 
-                          color={isFavorite ? 'var(--danger)' : 'var(--text-muted)'} 
-                          style={{ transition: 'all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }} 
-                          className={isFavorite ? 'animate-fade-in' : ''}
-                        />
+                       <Navigation size={14} /> Directions
+                      </a>
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); toggleFavorite(salon.id); }}
+                        className="btn btn-secondary"
+                        style={{ width: '38px', height: '38px', padding: 0, borderRadius: '10px' }}
+                      >
+                         <Heart size={16} fill={isFavorite ? 'var(--danger)' : 'transparent'} color={isFavorite ? 'var(--danger)' : 'currentColor'} />
                       </button>
                     </div>
-                    {isClosed ? (
-                      <span className="status-badge status-inactive">
-                        <div className="status-dot"></div>
-                        OFFLINE
-                      </span>
-                    ) : (
-                      <span className={`status-badge ${salon.status === 'AVAILABLE' ? 'status-active' : 'status-inactive'}`}>
-                        <div className="status-dot"></div>
-                        {salon.status}
-                      </span>
-                    )}
-                  </div>
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
 
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--text-muted)' }}>
-                      <Navigation size={16} />
-                      <span>{locationError ? 'Location unknown' : t('distance_km', { dist: formatLocalNum(salon.distance, i18n.language) })}</span>
-                    </div>
-                    <a 
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="btn btn-secondary"
-                      style={{ padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderRadius: '6px' }}
-                    >
-                      Get Directions
-                    </a>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                    <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <Users size={24} style={{ color: 'var(--primary)', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{formatLocalNum(salon.current_count, i18n.language)}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('current_crowd')}</div>
-                    </div>
-                    
-                    <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px', textAlign: 'center' }}>
-                      <Clock size={24} style={{ color: 'var(--accent)', margin: '0 auto 0.5rem' }} />
-                      <div style={{ fontSize: '1.5rem', fontWeight: 'bold' }}>{t('wait_time', { time: formatLocalNum(salon.wait_time, i18n.language) })}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t('predicted_wait')}</div>
-                    </div>
-                  </div>
-
-                  <div style={{ marginTop: '1rem', borderTop: '1px solid var(--panel-border)', paddingTop: '0.75rem', textAlign: 'center', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    {t('last_updated', { time: formatLocalTime(salon.updated_at || 'Just now', i18n.language) })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {salons.length === 0 && !loading && (
-              <div className="glass-panel text-center">
-                <p className="text-muted">{t('no_active_salons')}</p>
+            {processedSalons.length === 0 && !loading && (
+              <div className="text-center" style={{ padding: '3rem' }}>
+                 <Search size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
+                 <p className="text-muted">No results found for your search.</p>
               </div>
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

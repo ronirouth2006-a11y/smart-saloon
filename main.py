@@ -73,7 +73,8 @@ scheduler.start()
 
 @app.on_event("shutdown")
 def shutdown_event():
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
 
 @app.get("/")
 def home():

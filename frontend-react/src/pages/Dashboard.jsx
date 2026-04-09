@@ -5,6 +5,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { QRCodeSVG } from 'qrcode.react';
 import * as htmlToImage from 'html-to-image';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import api from '../api';
 
 export default function Dashboard() {
@@ -16,6 +17,11 @@ export default function Dashboard() {
   const [dailyData, setDailyData] = useState([]);
   const [isApproved, setIsApproved] = useState(true);
   const [currentCount, setCurrentCount] = useState(0);
+  const [cameraCount, setCameraCount] = useState(0);
+  const [manualOffset, setManualOffset] = useState(0);
+  const [lastUpdated, setLastUpdated] = useState(null);
+  const [timeAgo, setTimeAgo] = useState('');
+  const [isPulseWeak, setIsPulseWeak] = useState(false);
   
   // Staff State
   const [barbers, setBarbers] = useState([]);
@@ -44,8 +50,9 @@ export default function Dashboard() {
     const salonId = owner.id || 1;
     
     // Fetch analytics data
-    api.get(`/owner/analytics/${salonId}/weekly`)
+      api.get(`/owner/analytics/${salonId}/weekly`)
       .then(res => {
+          console.log("Analytics Data [v" + res.data.version + "]:", res.data);
           setHourlyData(res.data.hourly);
           setDailyData(res.data.daily);
       })
@@ -71,9 +78,53 @@ export default function Dashboard() {
         }
         setIsActive(res.data.is_active || false);
         setCurrentCount(res.data.current_count || 0);
+        setCameraCount(res.data.camera_count || 0);
+        setManualOffset(res.data.manual_offset || 0);
+        setLastUpdated(res.data.last_updated_at);
       })
       .catch(err => console.error("Error fetching settings", err));
+
+    // BACKGROUND POLLING (10s)
+    const interval = setInterval(() => {
+      api.get(`/public/salons/${salonId}`)
+        .then(res => {
+          setIsActive(res.data.is_active || false);
+          setCameraCount(res.data.camera_count || 0);
+          setManualOffset(res.data.manual_offset || 0);
+          setLastUpdated(res.data.last_updated_at);
+          setCurrentCount(res.data.current_count || 0);
+        })
+        .catch(err => console.error("Dashboard poll error", err));
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [navigate]);
+  
+  // Update "time ago" every second
+  useEffect(() => {
+    if (!lastUpdated) return;
+    
+    const updateTimer = () => {
+      const now = new Date();
+      const last = new Date(lastUpdated);
+      const diffInSeconds = Math.floor((now - last) / 1000);
+      
+      if (diffInSeconds < 60) {
+        setTimeAgo(`${diffInSeconds}s ago`);
+      } else {
+        const mins = Math.floor(diffInSeconds / 60);
+        const secs = diffInSeconds % 60;
+        setTimeAgo(`${mins}m ${secs}s ago`);
+      }
+      
+      // Weak pulse if > 3 mins (180s)
+      setIsPulseWeak(diffInSeconds > 180);
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
 
   const addBarber = async () => {
     if (!newBarberName || !newBarberSpecs) return;
@@ -126,19 +177,22 @@ export default function Dashboard() {
     navigate('/owner/login');
   };
 
-  const updateCrowd = async (newCount) => {
-    if (newCount < 0) return;
+  const updateOffset = async (newOffset) => {
+    if (newOffset < 0) return;
     try {
         const ownerStr = localStorage.getItem('owner');
         if (ownerStr) {
-            const token = JSON.parse(ownerStr).token;
             // Optimistic update
-            setCurrentCount(newCount);
-            await api.put(`/owner/live-status?current_count=${newCount}`);
+            setManualOffset(newOffset);
+            setCurrentCount(cameraCount + newOffset);
+            await api.patch(`/owner/salon`, { manual_offset: newOffset });
         }
     } catch (err) {
         console.error(err);
-        alert('Failed to update live crowd');
+        alert('Failed to update manual offset');
+        // Revert on failure
+        setManualOffset(manualOffset);
+        setCurrentCount(cameraCount + manualOffset);
     }
   };
 
@@ -264,6 +318,16 @@ export default function Dashboard() {
                 <Power size={20} />
                 {loading ? 'Processing...' : (isActive ? t('close_store') : t('open_store'))}
               </button>
+
+              {isActive && lastUpdated && (
+                <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: isPulseWeak ? 'var(--danger)' : 'var(--text-muted)' }}>
+                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
+                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isPulseWeak ? 'var(--danger)' : 'var(--success)', animation: isPulseWeak ? 'none' : 'pulse 2s infinite' }}></div>
+                    Last camera pulse: <strong style={{ color: isPulseWeak ? 'var(--danger)' : 'inherit' }}>{timeAgo}</strong>
+                  </span>
+                  {isPulseWeak && <p style={{ fontSize: '0.75rem', marginTop: '0.2rem', color: 'var(--danger)' }}>Connection weak. Check your camera feed.</p>}
+                </div>
+              )}
             </div>
 
             {/* Manual Crowd Control Section */}
@@ -275,28 +339,32 @@ export default function Dashboard() {
               marginBottom: '2rem'
             }}>
               <UsersIcon size={48} className="mb-2" style={{ color: 'var(--primary)' }} />
-              <h3 className="mb-1">Live Crowd Override</h3>
-              <p className="text-muted mb-3">Manually update the number of customers currently waiting at your salon. (This will be fully automated once your AI CCTV Camera is registered with the system).</p>
+              <h3 className="mb-1">Manual Crowd Offset</h3>
+              <p className="text-muted mb-3">Add hidden customers (like people in private cutting rooms) to the total count. This combines with your AI Camera feed!</p>
               
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '2rem', margin: '1.5rem 0' }}>
-                  <button 
-                      onClick={() => updateCrowd(currentCount - 1)} 
-                      className="btn btn-secondary"
-                      style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                      disabled={currentCount <= 0}
-                  >
-                      -
-                  </button>
-                  <div style={{ fontSize: '3rem', fontWeight: 800, minWidth: '80px', textAlign: 'center' }}>
-                      {currentCount}
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '12px', gap: '1rem' }}>
+                  <div style={{ textAlign: 'center' }}>
+                      <div className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>AI CAMERA</div>
+                      <motion.div key={cameraCount} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px', display: 'inline-block' }}>{cameraCount}</motion.div>
                   </div>
-                  <button 
-                      onClick={() => updateCrowd(currentCount + 1)} 
-                      className="btn btn-primary"
-                      style={{ width: '60px', height: '60px', borderRadius: '50%', fontSize: '2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0 }}
-                  >
-                      +
-                  </button>
+                  
+                  <div style={{ fontSize: '1.8rem', color: 'var(--text-muted)' }}>+</div>
+                  
+                  <div style={{ textAlign: 'center' }}>
+                      <div className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>MANUAL OFFSET</div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(129, 140, 248, 0.1)', padding: '0.5rem', borderRadius: '12px' }}>
+                          <button onClick={() => updateOffset(manualOffset - 1)} className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }} disabled={manualOffset <= 0}>-</button>
+                          <motion.span key={manualOffset} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2rem', fontWeight: 700, minWidth: '40px', color: 'var(--primary)', textAlign: 'center', display: 'inline-block' }}>{manualOffset}</motion.span>
+                          <button onClick={() => updateOffset(manualOffset + 1)} className="btn btn-primary" style={{ padding: '0.4rem', minWidth: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
+                      </div>
+                  </div>
+                  
+                  <div style={{ fontSize: '1.8rem', color: 'var(--text-muted)' }}>=</div>
+                  
+                  <div style={{ textAlign: 'center' }}>
+                      <div style={{ color: 'var(--success)', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem', letterSpacing: '0.5px' }}>TOTAL SHOWN</div>
+                      <motion.div key={currentCount} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--success)', textShadow: '0 0 15px rgba(16, 185, 129, 0.4)', display: 'inline-block' }}>{currentCount}</motion.div>
+                  </div>
               </div>
             </div>
 

@@ -94,17 +94,20 @@ def get_nearby(
                 updated_str = ist_time.strftime("%I:%M:%S %p") + " (IST)"
 
             import pytz
-            from datetime import datetime, timedelta
+            from datetime import datetime, timedelta, timezone
 
-            # 4. Wait time prediction (5 mins per person + 2 mins buffer)
-            wait_time = (people * 5) + 2
+            # Apply Manual Offset & calculate total
+            total_people = people + (s.manual_offset or 0)
+
+            # 4. Smart Wait Time (5 mins per person)
+            wait_time = total_people * 5 if s.is_active else 0
 
             # 5. Determine display status
-            display_status = "AVAILABLE" if people < 5 else "BUSY"
+            display_status = "AVAILABLE" if total_people < 5 else "BUSY"
             
             # Check for AI Camera Timeout (>5 mins since last ping)
             if status and status.updated_at:
-                time_diff = datetime.utcnow() - status.updated_at.replace(tzinfo=None)
+                time_diff = datetime.now(timezone.utc) - status.updated_at.replace(tzinfo=timezone.utc)
                 if time_diff > timedelta(minutes=5):
                     display_status = "NO LIVE FEED"
             
@@ -115,7 +118,7 @@ def get_nearby(
                 "id": s.id,
                 "name": s.name,
                 "distance": round(distance, 2),
-                "current_count": people,
+                "current_count": total_people if s.is_active else 0,
                 "wait_time": wait_time,
                 "latitude": s.latitude,
                 "longitude": s.longitude,
@@ -138,6 +141,7 @@ def get_single_salon(
     db: Session = Depends(get_db)
 ):
     import pytz
+    ist_timezone = pytz.timezone('Asia/Kolkata')
     from auth import get_optional_user
 
     email = get_optional_user(request)
@@ -157,12 +161,14 @@ def get_single_salon(
     people = status.current_count if status else 0
     current_status = status.status if status else "AVAILABLE"
     
-    wait_time = (people * 5) + 2 if people > 0 else 0
+    total_people = people + (s.manual_offset or 0)
     
-    display_status = "AVAILABLE" if people < 5 else "BUSY"
+    wait_time = (total_people * 5) + 2 if total_people > 0 and s.is_active else 0
+    
+    display_status = "AVAILABLE" if total_people < 5 else "BUSY"
     if status and status.updated_at:
-        from datetime import datetime, timedelta
-        time_diff = datetime.utcnow() - status.updated_at.replace(tzinfo=None)
+        from datetime import datetime, timedelta, timezone
+        time_diff = datetime.now(timezone.utc) - status.updated_at.replace(tzinfo=timezone.utc)
         if time_diff > timedelta(minutes=5):
             display_status = "NO LIVE FEED"
             
@@ -182,10 +188,13 @@ def get_single_salon(
         "name": s.name,
         "latitude": s.latitude,
         "longitude": s.longitude,
-        "current_count": people,
+        "current_count": total_people if s.is_active else 0,
+        "manual_offset": s.manual_offset or 0,
+        "camera_count": people,
         "wait_time": wait_time,
         "updated_at": updated_str,
         "is_favorited": s.id in user_fav_ids,
         "is_active": s.is_active,
+        "last_updated_at": status.updated_at.isoformat() if status and status.updated_at else None,
         "barbers": barber_list
     }

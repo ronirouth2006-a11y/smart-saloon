@@ -1,4 +1,4 @@
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { Scissors, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useState, useEffect } from 'react';
@@ -10,9 +10,11 @@ import Register from './pages/Register';
 import CustomerLogin from './pages/CustomerLogin';
 import SalonDetail from './pages/SalonDetail';
 import Admin from './pages/Admin';
+import RegistrationPending from './pages/RegistrationPending';
 
 function App() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { t, i18n } = useTranslation();
   
   // Theme Engine
@@ -43,9 +45,9 @@ function App() {
           <span>{t('app_name')}</span>
         </Link>
         <nav className="nav-links">
-          <Link to="/map">{t('nav_find')}</Link>
-          <Link to="/customer/login" style={{ color: 'var(--primary)' }}>{t('nav_customer_login')}</Link>
-          <Link to="/register" style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>{t('nav_register')}</Link>
+          <Link to="/map" style={{ color: location.pathname === '/map' ? 'var(--primary)' : 'var(--text-muted)' }}>{t('nav_find')}</Link>
+          <Link to="/customer/login" style={{ color: location.pathname === '/customer/login' ? 'var(--primary)' : 'var(--text-muted)' }}>{t('nav_customer_login')}</Link>
+          <Link to="/register" style={{ color: location.pathname === '/register' ? 'var(--primary)' : 'var(--text-muted)', fontSize: '0.9rem' }}>{t('nav_register')}</Link>
           
           <button 
             onClick={toggleTheme} 
@@ -80,7 +82,7 @@ function App() {
             {i18n.language.startsWith('bn') ? 'EN' : 'বাং'}
           </button>
 
-          <Link to="/owner/login" className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem' }}>
+          <Link to="/owner/login" className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem', borderColor: location.pathname.includes('/owner') ? 'var(--primary)' : 'var(--panel-border)' }}>
             {t('nav_owner_login')}
           </Link>
         </nav>
@@ -96,6 +98,7 @@ function App() {
           <Route path="/owner/login" element={<OwnerLogin />} />
           <Route path="/owner/dashboard" element={<Dashboard />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path="/registration-pending" element={<RegistrationPending />} />
         </Routes>
       </main>
     </div>

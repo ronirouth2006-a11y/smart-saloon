@@ -66,3 +66,4 @@ class SalonUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     camera_url: Optional[str] = None
+    manual_offset: Optional[int] = None

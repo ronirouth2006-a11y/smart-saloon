@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "axios": "^1.13.6",
+    "framer-motion": "^12.38.0",
     "html-to-image": "^1.11.13",
     "i18next": "^25.10.4",
     "i18next-browser-languagedetector": "^8.2.1",

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.orm import Session
 from database import SessionLocal
 import models, schemas, auth
+from datetime import datetime, timezone
 from auth import get_current_user
 import uuid
 import os
@@ -30,6 +31,11 @@ def register_owner_and_salon(data: schemas.OwnerRegister, db: Session = Depends(
     existing_owner = db.query(models.Owner).filter(models.Owner.email == data.email).first()
     if existing_owner:
         raise HTTPException(status_code=400, detail="Email already registered")
+
+    # 🛑 Anti-Duplicate System: Prevent multiple shops with the same name
+    existing_salon = db.query(models.Saloon).filter(models.Saloon.name.ilike(data.salon_name)).first()
+    if existing_salon:
+        raise HTTPException(status_code=400, detail="A salon with this exact name is already registered. Please login, or contact support if you own it.")
 
     # 👤 Create Owner
     new_owner = models.Owner(
@@ -63,9 +69,13 @@ def register_owner_and_salon(data: schemas.OwnerRegister, db: Session = Depends(
 
     db.commit()
 
+    # Automatically generate a token for step 2 (Verification Photo Upload)
+    token = auth.create_token({"sub": new_owner.email})
+
     return {
         "message": "Registration Successful",
-        "salon_id": new_salon.id
+        "salon_id": new_salon.id,
+        "access_token": token
     }
 
 
@@ -79,12 +89,21 @@ def login(data: schemas.OwnerLogin, db: Session = Depends(get_db)):
 
     if not owner or not auth.verify_password(data.password, owner.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
+        
+    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    
+    if salon:
+        if salon.is_rejected:
+            raise HTTPException(status_code=403, detail="Registration Rejected")
+        if not salon.is_approved:
+            raise HTTPException(status_code=403, detail="Registration Pending")
 
     token = auth.create_token({"sub": owner.email})
 
     return {
         "access_token": token,
-        "token_type": "bearer"
+        "token_type": "bearer",
+        "saloon_id": salon.id if salon else None
     }
 
 
@@ -109,6 +128,12 @@ def toggle_status(
         raise HTTPException(status_code=404, detail="Salon not found")
 
     salon.is_active = data.is_active
+    
+    # 🕒 Refresh LiveStatus timestamp to "wake up" the shop and avoid NO LIVE FEED
+    status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon.id).first()
+    if status:
+        status.updated_at = datetime.now(timezone.utc)
+        
     db.commit()
 
     return {
@@ -177,6 +202,9 @@ def update_live_crowd(
     else:
         live_status.status = "AVAILABLE"
 
+    # 🕒 Refresh LiveStatus timestamp to "wake up" the shop and avoid NO LIVE FEED
+    live_status.updated_at = datetime.now(timezone.utc)
+
     db.commit()
 
     return {
@@ -228,33 +256,46 @@ def get_weekly_analytics(salon_id: int, db: Session = Depends(get_db)):
     base_footfall = analytics.total_customers_today if analytics and analytics.total_customers_today > 10 else 120
     current_wait = live_status.current_count if live_status else 5
 
-    # Generate 7-day BarChart Footfall Data seamlessly
+    import pytz
+    ist_timezone = pytz.timezone('Asia/Kolkata')
+    now_ist = datetime.now(ist_timezone)
+
+    # 1. Generate 7-day BarChart Footfall Data seamlessly (Ends at Today)
     days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-    today_idx = datetime.utcnow().weekday()
+    today_idx = now_ist.weekday()
     
     daily_data = []
     for i in range(7):
+        # We want the last 7 days ending with TODAY
         day_label = days_of_week[(today_idx - 6 + i) % 7]
         # Simulate realistic daily curves with weekend spikes
         modifier = 1.4 if day_label in ["Sat", "Sun"] else 0.9
         daily_count = int(base_footfall * modifier * random.uniform(0.8, 1.2))
         daily_data.append({"day": day_label, "footfall": daily_count})
 
-    # Generate Hourly LineChart Trend Data seamlessly
-    hourly_data = [
-        {"hour": "10 AM", "count": int(current_wait * 0.5)},
-        {"hour": "11 AM", "count": int(current_wait * 0.8)},
-        {"hour": "12 PM", "count": int(current_wait * 1.5)},
-        {"hour": "01 PM", "count": int(current_wait * 1.8)},
-        {"hour": "02 PM", "count": int(current_wait * 1.2)},
-        {"hour": "03 PM", "count": int(current_wait * 0.7)},
-        {"hour": "04 PM", "count": int(current_wait * 0.5)},
-        {"hour": "05 PM", "count": int(current_wait * 1.0)},
-        {"hour": "06 PM", "count": int(current_wait * 2.0)},
-        {"hour": "07 PM", "count": int(current_wait * 1.8)},
-    ]
+    # 2. Generate 10-hour Sliding Window for LineChart Trend
+    hourly_data = []
+    for i in range(10):
+        # Look back 9 hours from now
+        past_hour = now_ist - timedelta(hours=(9 - i))
+        hour_label = past_hour.strftime("%I %p")
+        
+        # Simulate a curve: lower at night, higher during day, plus some randomness
+        hour_int = past_hour.hour
+        # Base demand curve: Peaks during day (12-2pm and 5-7pm)
+        demand_curve = 1.0
+        if 11 <= hour_int <= 14: demand_curve = 1.6
+        elif 17 <= hour_int <= 20: demand_curve = 1.8
+        elif 22 <= hour_int or hour_int <= 7: demand_curve = 0.3
+        
+        count = int(current_wait * demand_curve * random.uniform(0.7, 1.3))
+        # Ensure the last point matches actual current count for realism
+        if i == 9: count = current_wait
+        
+        hourly_data.append({"hour": hour_label, "count": count})
 
     return {
+        "version": "2.1-dynamic-ist",
         "daily": daily_data,
         "hourly": hourly_data
     }
@@ -331,6 +372,7 @@ def update_salon(
     if data.latitude: salon.latitude = data.latitude
     if data.longitude: salon.longitude = data.longitude
     if data.camera_url: salon.camera_url = data.camera_url
+    if data.manual_offset is not None: salon.manual_offset = data.manual_offset
     
     db.commit()
     return {"message": "Salon settings updated"}

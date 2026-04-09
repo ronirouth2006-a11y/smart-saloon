@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { MapPin, UserPlus, Scissors } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -50,6 +50,16 @@ export default function Register() {
   const [registeredSalonId, setRegisteredSalonId] = useState(null);
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(null);
+
+  // 🔄 RECOVERY LOGIC: Check if user was previously in Step 2
+  useEffect(() => {
+    const savedStep = localStorage.getItem('pendingStep');
+    const savedSalonId = localStorage.getItem('pendingSalonId');
+    if (savedStep && savedSalonId) {
+        setStep(parseInt(savedStep));
+        setRegisteredSalonId(parseInt(savedSalonId));
+    }
+  }, []);
 
   const getGPSLocation = () => {
     setLocating(true);
@@ -127,9 +137,32 @@ export default function Register() {
     setLoading(true);
     setError('');
 
+    // 🧹 Clean slate: remove any old owner login data to avoid conflicts
+    localStorage.removeItem('owner');
+    localStorage.removeItem('pendingOwnerCredentials');
+    localStorage.removeItem('pendingStep');
+    localStorage.removeItem('pendingSalonId');
+
     try {
       const res = await api.post('/owner/register', formData);
-      setRegisteredSalonId(res.data.salon_id);
+      const newSalonId = res.data.salon_id;
+      setRegisteredSalonId(newSalonId);
+      
+      // Store credentials for status polling/persistence
+      localStorage.setItem('pendingOwnerCredentials', JSON.stringify({
+        email: formData.email,
+        password: formData.password
+      }));
+
+      // 🔄 Store progress for recovery
+      localStorage.setItem('pendingStep', '2');
+      localStorage.setItem('pendingSalonId', newSalonId);
+
+      // Store token so step 2 can authenticate
+      if (res.data.access_token) {
+        localStorage.setItem('tempRegistrationToken', res.data.access_token);
+      }
+      
       setStep(2); // Move to the photo verification step
     } catch (err) {
       setError(err.response?.data?.detail || 'Registration failed. Please check your inputs.');
@@ -158,14 +191,22 @@ export default function Register() {
     formData.append('file', photoFile);
 
     try {
-      // Assuming we have an upload token or session persistence.
-      // Since the owner just registered, they might not be fully logged in.
-      // We explicitly pass headers or the backend allows it directly for this ID.
-      // Let's rely on standard endpoints.
+      // Get the token we just saved during step 1
+      const token = localStorage.getItem('tempRegistrationToken');
+
       await api.post(`/owner/${registeredSalonId}/upload-photo`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 
+          'Content-Type': 'multipart/form-data',
+          'Authorization': `Bearer ${token}`
+        }
       });
-      navigate('/owner/login', { state: { message: 'Registration and verification submitted! Please login.' } });
+      
+      // Clean up temp tokens and progress
+      localStorage.removeItem('tempRegistrationToken');
+      localStorage.removeItem('pendingStep');
+      localStorage.removeItem('pendingSalonId');
+      
+      navigate('/registration-pending');
     } catch (err) {
       setError(err.response?.data?.detail || 'Photo upload failed. You may need to retry later.');
     } finally {
