@@ -1,89 +1,76 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Float, Boolean, Table
-from sqlalchemy.orm import relationship
-from database import Base
+from beanie import Document, Indexed
+from pydantic import Field
 from datetime import datetime, timezone
+from typing import List, Optional
+from uuid import UUID, uuid4
 
-# Association Table for Many-to-Many
-user_favorites = Table(
-    'user_favorites', Base.metadata,
-    Column('user_id', Integer, ForeignKey('users.id')),
-    Column('saloon_id', Integer, ForeignKey('saloons.id'))
-)
+class User(Document):
+    name: str
+    email: Indexed(str, unique=True)
+    password: str
+    is_customer: bool = True
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    favorite_salon_ids: List[str] = []
 
-class User(Base):
-    __tablename__ = "users"
+    class Settings:
+        name = "users"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100))
-    email = Column(String(100), unique=True)
-    password = Column(String(200))
-    is_customer = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+class Owner(Document):
+    name: str
+    email: Indexed(str, unique=True)
+    password: str
+    phone: str
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Settings:
+        name = "owners"
+
+class Saloon(Document):
+    owner_id: str  # ID of the Owner document
+    name: Indexed(str)
+    location: str
+    max_limit: int = 8
+    assistant_phone: str
     
-    favorites = relationship("Saloon", secondary=user_favorites)
-
-class Owner(Base):
-    __tablename__ = "owners"
-
-    id = Column(Integer, primary_key=True)
-    name = Column(String(100))
-    email = Column(String(100), unique=True)
-    password = Column(String(200))
-    phone = Column(String(20))
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-
-class Saloon(Base):
-    __tablename__ = "saloons"
-
-    id = Column(Integer, primary_key=True)
-    owner_id = Column(Integer, ForeignKey("owners.id"))
-    name = Column(String(100))
-    location = Column(String(200))
-    max_limit = Column(Integer, default=8)
-    assistant_phone = Column(String(20))
-
     # 🌍 Location for map feature
-    latitude = Column(Float)
-    longitude = Column(Float)
+    latitude: float
+    longitude: float
 
-    # ✅ NEW: Shop Status (Must-have for startups)
-    # Set to True when owner opens the shop, otherwise False
-    is_active = Column(Boolean, default=False)
+    # ✅ Shop Status
+    is_active: bool = False
+    is_approved: bool = False
+    is_rejected: bool = False
     
-    # Anti-Spam Verification
-    is_approved = Column(Boolean, default=False)
-    storefront_photo_url = Column(String(255), nullable=True)
-    
-    # 🎥 CCTV Integration (RTSP URL)
-    camera_url = Column(String(255), nullable=True)
+    storefront_photo_url: Optional[str] = None
+    camera_url: Optional[str] = None
+    manual_offset: int = 0
 
-    # ➕ Manual Offset for hidden customers
-    manual_offset = Column(Integer, default=0)
+    class Settings:
+        name = "saloons"
 
-    # ❌ Rejection Status
-    is_rejected = Column(Boolean, default=False)
+class LiveStatus(Document):
+    saloon_id: Indexed(str, unique=True)
+    current_count: int = 0
+    status: str = "AVAILABLE" # AVAILABLE, MEDIUM, BUSY
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class LiveStatus(Base):
-    __tablename__ = "live_status"
+    class Settings:
+        name = "live_status"
 
-    id = Column(Integer, primary_key=True)
-    saloon_id = Column(Integer, ForeignKey("saloons.id"))
-    current_count = Column(Integer)
-    status = Column(String(20)) # Green, Orange, Red
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+class Analytics(Document):
+    saloon_id: Indexed(str)
+    total_customers_today: int = 0
+    peak_hour: Optional[str] = None
+    date: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-class Analytics(Base):
-    __tablename__ = "analytics"
-    id = Column(Integer, primary_key=True)
-    saloon_id = Column(Integer, ForeignKey("saloons.id"))
-    total_customers_today = Column(Integer, default=0)
-    peak_hour = Column(String(50)) # Peak hour with highest crowd
-    date = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    class Settings:
+        name = "analytics"
 
-class Barber(Base):
-    __tablename__ = "barbers"
-    id = Column(Integer, primary_key=True)
-    saloon_id = Column(Integer, ForeignKey("saloons.id"))
-    name = Column(String(100))
-    specialty = Column(String(100))
-    is_available = Column(Boolean, default=True)
+class Barber(Document):
+    saloon_id: Indexed(str)
+    name: str
+    specialty: str
+    is_available: bool = True
+
+    class Settings:
+        name = "barbers"

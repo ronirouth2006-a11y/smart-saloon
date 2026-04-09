@@ -1,54 +1,54 @@
-from database import SessionLocal
-from models import Saloon, Owner, LiveStatus
+import asyncio
+from database import init_db
+import models
 from auth import hash_password
 
-def seed_admin_demo():
-    db = SessionLocal()
+async def seed_admin_demo():
+    # 🔌 Initialize Beanie
+    await init_db()
+    
     try:
         # Check if we already have a demo owner
-        owner = db.query(Owner).filter(Owner.email == "demo@saloon.com").first()
+        owner = await models.Owner.find_one(models.Owner.email == "demo@saloon.com")
         if not owner:
-            owner = Owner(
+            owner = models.Owner(
                 name="Demo Owner",
                 email="demo@saloon.com",
                 password=hash_password("password123"),
                 phone="1234567890"
             )
-            db.add(owner)
-            db.commit()
-            db.refresh(owner)
+            await owner.insert()
         
         # Add 2 Pending Salons
-        s1 = Saloon(
-            owner_id=owner.id,
+        s1 = models.Saloon(
+            owner_id=str(owner.id),
             name="The Royal Clipper",
             location="Market Street, Block A",
             latitude=22.5800,
             longitude=88.3700,
             is_active=False,
             is_approved=False,
-            storefront_photo_url="/static/uploads/salons/demo1.jpg"
+            storefront_photo_url="/static/uploads/salons/demo1.jpg",
+            assistant_phone="1234567890"
         )
         
-        s2 = Saloon(
-            owner_id=owner.id,
+        s2 = models.Saloon(
+            owner_id=str(owner.id),
             name="Modern Fades",
             location="Highrise Mall, 2nd Floor",
             latitude=22.5900,
             longitude=88.3800,
             is_active=False,
-            is_approved=False
+            is_approved=False,
+            assistant_phone="1234567890"
         )
         
-        db.add(s1)
-        db.add(s2)
-        db.commit()
+        await s1.insert()
+        await s2.insert()
         print("✅ Demo salons added for Admin verification!")
         
     except Exception as e:
         print(f"❌ Seed failed: {e}")
-    finally:
-        db.close()
 
 if __name__ == "__main__":
-    seed_admin_demo()
+    asyncio.run(seed_admin_demo())

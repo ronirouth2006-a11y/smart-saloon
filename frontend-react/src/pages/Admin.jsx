@@ -140,7 +140,7 @@ export default function Admin() {
               <div>
                 <div style={{ width: '100%', height: '160px', background: 'rgba(0,0,0,0.2)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--panel-border)' }}>
                   {salon.storefront_photo_url ? (
-                    <img src={`http://localhost:8000${salon.storefront_photo_url}`} alt="Store" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={`${api.defaults.baseURL}${salon.storefront_photo_url}`} alt="Store" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}><ImageIcon size={40} opacity={0.3} /></div>
                   )}

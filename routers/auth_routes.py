@@ -1,17 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
-from database import SessionLocal
+from fastapi import APIRouter, HTTPException
 import models, auth
 from pydantic import BaseModel
+from jose import jwt, JWTError
+from auth import SECRET_KEY, ALGORITHM, hash_password
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 class ForgotPasswordRequest(BaseModel):
     email: str
@@ -21,16 +14,17 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 @router.post("/forgot-password")
-def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
-    owner = db.query(models.Owner).filter(models.Owner.email == data.email).first()
+async def forgot_password(data: ForgotPasswordRequest):
+    # 🍃 MongoDB Async Lookup
+    owner = await models.Owner.find_one(models.Owner.email == data.email)
     if not owner:
-        # Prevent email enumeration attacks by returning the same success message
+        # Prevent email enumeration attacks
         return {"message": "If the email exists, a reset code was generated."}
     
     # Generate a short-lived token (15 mins) specifically for resetting
     reset_token = auth.create_token({"sub": owner.email, "type": "reset"})
     
-    # For MVP, we simply print/log the token instead of using SMTP
+    # Log the token (SMTP placeholder)
     print("\n" + "="*50)
     print(f"🔒 PASSWORD RESET REQUEST for {owner.email}")
     print(f"🔑 RESET TOKEN: {reset_token}")
@@ -39,10 +33,7 @@ def forgot_password(data: ForgotPasswordRequest, db: Session = Depends(get_db)):
     return {"message": "Reset code generated check console."}
 
 @router.post("/reset-password")
-def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
-    from jose import jwt, JWTError
-    from auth import SECRET_KEY, ALGORITHM, hash_password
-    
+async def reset_password(data: ResetPasswordRequest):
     try:
         payload = jwt.decode(data.token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub")
@@ -51,12 +42,14 @@ def reset_password(data: ResetPasswordRequest, db: Session = Depends(get_db)):
         if not email or token_type != "reset":
             raise HTTPException(status_code=400, detail="Invalid token type")
             
-        owner = db.query(models.Owner).filter(models.Owner.email == email).first()
+        # 🍃 MongoDB Async Lookup
+        owner = await models.Owner.find_one(models.Owner.email == email)
         if not owner:
             raise HTTPException(status_code=404, detail="Owner not found")
             
+        # Update and Save
         owner.password = hash_password(data.new_password)
-        db.commit()
+        await owner.save()
         
         return {"message": "Password updated successfully."}
         

@@ -1,96 +1,77 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from sqlalchemy.orm import Session
-from database import SessionLocal
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 import models, schemas, auth
 from datetime import datetime, timezone
 from auth import get_current_user
 import uuid
 import os
 import shutil
+import pytz
+import random
 
-# ✅ Prefix added (VERY IMPORTANT)
 router = APIRouter(prefix="/owner", tags=["Owner"])
-
-
-# 🔌 Database Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
 
 # =========================================================
 # 1️⃣ REGISTER OWNER + SALON
 # =========================================================
 @router.post("/register")
-def register_owner_and_salon(data: schemas.OwnerRegister, db: Session = Depends(get_db)):
-
+async def register_owner_and_salon(data: schemas.OwnerRegister):
     # 🔍 Check existing email
-    existing_owner = db.query(models.Owner).filter(models.Owner.email == data.email).first()
+    existing_owner = await models.Owner.find_one(models.Owner.email == data.email)
     if existing_owner:
         raise HTTPException(status_code=400, detail="Email already registered")
 
-    # 🛑 Anti-Duplicate System: Prevent multiple shops with the same name
-    existing_salon = db.query(models.Saloon).filter(models.Saloon.name.ilike(data.salon_name)).first()
+    # 🛑 Anti-Duplicate System
+    existing_salon = await models.Saloon.find_one({"name": {"$regex": f"^{data.salon_name}$", "$options": "i"}})
     if existing_salon:
-        raise HTTPException(status_code=400, detail="A salon with this exact name is already registered. Please login, or contact support if you own it.")
+        raise HTTPException(status_code=400, detail="A salon with this name exists.")
 
     # 👤 Create Owner
     new_owner = models.Owner(
         name=data.owner_name,
         email=data.email,
-        password=auth.hash_password(data.password),  # default password
+        password=auth.hash_password(data.password),
         phone=data.phone
     )
-    db.add(new_owner)
-    db.flush()
+    await new_owner.insert()
 
     # 🏪 Create Salon
     new_salon = models.Saloon(
-        owner_id=new_owner.id,
+        owner_id=str(new_owner.id),
         name=data.salon_name,
         latitude=data.latitude,
         longitude=data.longitude,
         assistant_phone=data.phone,
         is_active=True
     )
-    db.add(new_salon)
-    db.flush()
+    await new_salon.insert()
 
     # 📊 Create Live Status
     new_status = models.LiveStatus(
-        saloon_id=new_salon.id,
+        saloon_id=str(new_salon.id),
         current_count=0,
         status="AVAILABLE"
     )
-    db.add(new_status)
+    await new_status.insert()
 
-    db.commit()
-
-    # Automatically generate a token for step 2 (Verification Photo Upload)
     token = auth.create_token({"sub": new_owner.email})
 
     return {
         "message": "Registration Successful",
-        "salon_id": new_salon.id,
+        "salon_id": str(new_salon.id),
         "access_token": token
     }
-
 
 # =========================================================
 # 2️⃣ LOGIN OWNER
 # =========================================================
 @router.post("/login")
-def login(data: schemas.OwnerLogin, db: Session = Depends(get_db)):
-
-    owner = db.query(models.Owner).filter(models.Owner.email == data.email).first()
+async def login(data: schemas.OwnerLogin):
+    owner = await models.Owner.find_one(models.Owner.email == data.email)
 
     if not owner or not auth.verify_password(data.password, owner.password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
         
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
     if salon:
         if salon.is_rejected:
@@ -103,57 +84,47 @@ def login(data: schemas.OwnerLogin, db: Session = Depends(get_db)):
     return {
         "access_token": token,
         "token_type": "bearer",
-        "saloon_id": salon.id if salon else None
+        "saloon_id": str(salon.id) if salon else None
     }
-
 
 # =========================================================
 # 3️⃣ TOGGLE SHOP OPEN / CLOSE
 # =========================================================
 @router.put("/toggle-status")
-def toggle_status(
+async def toggle_status(
     data: schemas.SalonStatusUpdate,
-    db: Session = Depends(get_db),
     email: str = Depends(get_current_user)
 ):
-
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-
+    owner = await models.Owner.find_one(models.Owner.email == email)
     if not owner:
         raise HTTPException(status_code=404, detail="Owner not found")
 
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
-
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     if not salon:
         raise HTTPException(status_code=404, detail="Salon not found")
 
     salon.is_active = data.is_active
+    await salon.save()
     
-    # 🕒 Refresh LiveStatus timestamp to "wake up" the shop and avoid NO LIVE FEED
-    status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon.id).first()
+    # Refresh LiveStatus timestamp
+    status = await models.LiveStatus.find_one(models.LiveStatus.saloon_id == str(salon.id))
     if status:
         status.updated_at = datetime.now(timezone.utc)
+        await status.save()
         
-    db.commit()
-
-    return {
-        "message": "Shop status updated",
-        "active": salon.is_active
-    }
-
+    return {"message": "Shop status updated", "active": salon.is_active}
 
 # =========================================================
-# 3.5️⃣ UPLOAD STOREFRONT PHOTO (Verification)
+# 3.5️⃣ UPLOAD STOREFRONT PHOTO
 # =========================================================
 @router.post("/{salon_id}/upload-photo")
-def upload_storefront_photo(
-    salon_id: int,
+async def upload_storefront_photo(
+    salon_id: str,
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
     email: str = Depends(get_current_user)
 ):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.id == salon_id, models.Saloon.owner_id == owner.id).first()
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.id == salon_id, models.Saloon.owner_id == str(owner.id))
 
     if not salon:
         raise HTTPException(status_code=404, detail="Salon not found or unauthorized")
@@ -166,35 +137,31 @@ def upload_storefront_photo(
         shutil.copyfileobj(file.file, buffer)
 
     salon.storefront_photo_url = f"/static/uploads/salons/{unique_filename}"
-    db.commit()
+    await salon.save()
 
-    return {"message": "Photo uploaded successfully for verification.", "url": salon.storefront_photo_url}
-
+    return {"message": "Photo uploaded successfully", "url": salon.storefront_photo_url}
 
 # =========================================================
-# 3.6️⃣ MANUAL OVERRIDE & CCTV HOOK (Update Crowd)
+# 3.6️⃣ MANUAL OVERRIDE (Update Crowd)
 # =========================================================
 @router.put("/live-status")
-def update_live_crowd(
+async def update_live_crowd(
     current_count: int,
-    db: Session = Depends(get_db),
     email: str = Depends(get_current_user)
 ):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
 
     if not salon:
         raise HTTPException(status_code=404, detail="Salon not found")
 
-    live_status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon.id).first()
-    
+    live_status = await models.LiveStatus.find_one(models.LiveStatus.saloon_id == str(salon.id))
     if not live_status:
         raise HTTPException(status_code=404, detail="Live status record not found")
 
-    # Update count
     live_status.current_count = current_count
     
-    # Auto-calculate status string based on max limit
+    # Auto-calculate status
     if current_count >= salon.max_limit:
         live_status.status = "BUSY"
     elif current_count >= (salon.max_limit // 2):
@@ -202,10 +169,8 @@ def update_live_crowd(
     else:
         live_status.status = "AVAILABLE"
 
-    # 🕒 Refresh LiveStatus timestamp to "wake up" the shop and avoid NO LIVE FEED
     live_status.updated_at = datetime.now(timezone.utc)
-
-    db.commit()
+    await live_status.save()
 
     return {
         "message": "Crowd count updated successfully",
@@ -213,29 +178,23 @@ def update_live_crowd(
         "status": live_status.status
     }
 
-
 # =========================================================
-# 4️⃣ OWNER ANALYTICS (OPTIONAL BUT IMPORTANT 🚀)
+# 4️⃣ OWNER ANALYTICS
 # =========================================================
 @router.get("/analytics/{salon_id}")
-def get_analytics(
-    salon_id: int,
-    db: Session = Depends(get_db),
+async def get_analytics(
+    salon_id: str,
     email: str = Depends(get_current_user)
 ):
-
-    salon = db.query(models.Saloon).filter(models.Saloon.id == salon_id).first()
-
+    # Verify ownership
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.id == salon_id, models.Saloon.owner_id == str(owner.id))
     if not salon:
         raise HTTPException(status_code=404, detail="Salon not found")
 
-    analytics = db.query(models.Analytics).filter(models.Analytics.saloon_id == salon_id).first()
-
+    analytics = await models.Analytics.find_one(models.Analytics.saloon_id == salon_id)
     if not analytics:
-        return {
-            "total_customers": 0,
-            "peak_hour": "N/A"
-        }
+        return {"total_customers": 0, "peak_hour": "N/A"}
 
     return {
         "total_customers": analytics.total_customers_today,
@@ -243,128 +202,89 @@ def get_analytics(
     }
 
 # =========================================================
-# 5️⃣ WEEKLY & HOURLY CHART ANALYTICS (RECHARTS PAYLOAD)
+# 5️⃣ WEEKLY & HOURLY CHART ANALYTICS
 # =========================================================
 @router.get("/analytics/{salon_id}/weekly")
-def get_weekly_analytics(salon_id: int, db: Session = Depends(get_db)):
-    from datetime import datetime, timedelta
-    import random
-    
-    analytics = db.query(models.Analytics).filter(models.Analytics.saloon_id == salon_id).first()
-    live_status = db.query(models.LiveStatus).filter(models.LiveStatus.saloon_id == salon_id).first()
+async def get_weekly_analytics(salon_id: str):
+    analytics = await models.Analytics.find_one(models.Analytics.saloon_id == salon_id)
+    live_status = await models.LiveStatus.find_one(models.LiveStatus.saloon_id == salon_id)
     
     base_footfall = analytics.total_customers_today if analytics and analytics.total_customers_today > 10 else 120
     current_wait = live_status.current_count if live_status else 5
 
-    import pytz
     ist_timezone = pytz.timezone('Asia/Kolkata')
     now_ist = datetime.now(ist_timezone)
 
-    # 1. Generate 7-day BarChart Footfall Data seamlessly (Ends at Today)
+    # Simulated data generation for Recharts
     days_of_week = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
     today_idx = now_ist.weekday()
     
     daily_data = []
     for i in range(7):
-        # We want the last 7 days ending with TODAY
         day_label = days_of_week[(today_idx - 6 + i) % 7]
-        # Simulate realistic daily curves with weekend spikes
         modifier = 1.4 if day_label in ["Sat", "Sun"] else 0.9
         daily_count = int(base_footfall * modifier * random.uniform(0.8, 1.2))
         daily_data.append({"day": day_label, "footfall": daily_count})
 
-    # 2. Generate 10-hour Sliding Window for LineChart Trend
     hourly_data = []
     for i in range(10):
-        # Look back 9 hours from now
         past_hour = now_ist - timedelta(hours=(9 - i))
         hour_label = past_hour.strftime("%I %p")
-        
-        # Simulate a curve: lower at night, higher during day, plus some randomness
         hour_int = past_hour.hour
-        # Base demand curve: Peaks during day (12-2pm and 5-7pm)
         demand_curve = 1.0
         if 11 <= hour_int <= 14: demand_curve = 1.6
         elif 17 <= hour_int <= 20: demand_curve = 1.8
         elif 22 <= hour_int or hour_int <= 7: demand_curve = 0.3
         
         count = int(current_wait * demand_curve * random.uniform(0.7, 1.3))
-        # Ensure the last point matches actual current count for realism
         if i == 9: count = current_wait
-        
         hourly_data.append({"hour": hour_label, "count": count})
 
-    return {
-        "version": "2.1-dynamic-ist",
-        "daily": daily_data,
-        "hourly": hourly_data
-    }
-
+    return {"daily": daily_data, "hourly": hourly_data}
 
 # =========================================================
 # 6️⃣ STAFF MANAGEMENT (BARBERS)
 # =========================================================
 @router.get("/barbers", response_model=list[schemas.BarberResponse])
-def get_barbers(
-    db: Session = Depends(get_db),
-    email: str = Depends(get_current_user)
-):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
-    return db.query(models.Barber).filter(models.Barber.saloon_id == salon.id).all()
+async def get_barbers(email: str = Depends(get_current_user)):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
+    barbers = await models.Barber.find(models.Barber.saloon_id == str(salon.id)).to_list()
+    return [schemas.BarberResponse(id=str(b.id), name=b.name, specialty=b.specialty, is_available=b.is_available) for b in barbers]
 
 @router.post("/barbers", response_model=schemas.BarberResponse)
-def add_barber(
-    data: schemas.BarberCreate,
-    db: Session = Depends(get_db),
-    email: str = Depends(get_current_user)
-):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+async def add_barber(data: schemas.BarberCreate, email: str = Depends(get_current_user)):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
     new_barber = models.Barber(
-        saloon_id=salon.id,
+        saloon_id=str(salon.id),
         name=data.name,
         specialty=data.specialty,
         is_available=True
     )
-    db.add(new_barber)
-    db.commit()
-    db.refresh(new_barber)
-    return new_barber
+    await new_barber.insert()
+    return schemas.BarberResponse(id=str(new_barber.id), name=new_barber.name, specialty=new_barber.specialty, is_available=new_barber.is_available)
 
 @router.delete("/barbers/{barber_id}")
-def delete_barber(
-    barber_id: int,
-    db: Session = Depends(get_db),
-    email: str = Depends(get_current_user)
-):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+async def delete_barber(barber_id: str, email: str = Depends(get_current_user)):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
-    barber = db.query(models.Barber).filter(
-        models.Barber.id == barber_id, 
-        models.Barber.saloon_id == salon.id
-    ).first()
-    
+    barber = await models.Barber.find_one(models.Barber.id == barber_id, models.Barber.saloon_id == str(salon.id))
     if not barber:
         raise HTTPException(status_code=404, detail="Barber not found")
         
-    db.delete(barber)
-    db.commit()
+    await barber.delete()
     return {"message": "Barber removed"}
 
 # =========================================================
 # 7️⃣ SALON SETTINGS UPDATE
 # =========================================================
 @router.patch("/salon")
-def update_salon(
-    data: schemas.SalonUpdate,
-    db: Session = Depends(get_db),
-    email: str = Depends(get_current_user)
-):
-    owner = db.query(models.Owner).filter(models.Owner.email == email).first()
-    salon = db.query(models.Saloon).filter(models.Saloon.owner_id == owner.id).first()
+async def update_salon(data: schemas.SalonUpdate, email: str = Depends(get_current_user)):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
     if data.name: salon.name = data.name
     if data.max_limit: salon.max_limit = data.max_limit
@@ -374,6 +294,5 @@ def update_salon(
     if data.camera_url: salon.camera_url = data.camera_url
     if data.manual_offset is not None: salon.manual_offset = data.manual_offset
     
-    db.commit()
+    await salon.save()
     return {"message": "Salon settings updated"}
-

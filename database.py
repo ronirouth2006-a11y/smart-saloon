@@ -1,30 +1,22 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from motor.motor_asyncio import AsyncIOMotorClient
+from beanie import init_beanie
 from config import settings
-import os
+import models
 
-# Priority to env var (for Heroku/Render Postgres), fallback to local configuration
-DB_URL = os.getenv("DATABASE_URL", settings.DATABASE_URL)
-
-# Dynamic Engine Creation supporting both local SQLite and Production PostgreSQL
-if DB_URL.startswith("sqlite"):
-    engine = create_engine(DB_URL, connect_args={"check_same_thread": False})
-else:
-    # Some cloud providers use postgres:// instead of postgresql://
-    if DB_URL.startswith("postgres://"):
-        DB_URL = DB_URL.replace("postgres://", "postgresql://", 1)
-        
-    engine = create_engine(
-        DB_URL, 
-        pool_size=10, 
-        max_overflow=20,
-        pool_pre_ping=True
+async def init_db():
+    # 🍃 Initialize MongoDB client
+    client = AsyncIOMotorClient(settings.DATABASE_URL)
+    
+    # 📂 Initialize Beanie with the model classes
+    # We will pass the classes after they are converted to Beanie Documents
+    await init_beanie(
+        database=client.get_default_database(),
+        document_models=[
+            models.User,
+            models.Owner,
+            models.Saloon,
+            models.LiveStatus,
+            models.Analytics,
+            models.Barber
+        ]
     )
-
-SessionLocal = sessionmaker(
-    bind=engine,
-    autoflush=False,
-    autocommit=False
-)
-
-Base = declarative_base()

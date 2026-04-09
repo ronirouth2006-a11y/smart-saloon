@@ -38,7 +38,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
 
   // The active salon ID from the owner session
-  const activeSalonId = localStorage.getItem('owner') ? JSON.parse(localStorage.getItem('owner')).id || 1 : 1;
+  const activeSalonId = localStorage.getItem('owner') ? JSON.parse(localStorage.getItem('owner')).id || "" : "";
 
   useEffect(() => {
     const ownerStr = localStorage.getItem('owner');
@@ -47,7 +47,7 @@ export default function Dashboard() {
       return;
     }
     const owner = JSON.parse(ownerStr);
-    const salonId = owner.id || 1;
+    const salonId = owner.id || "";
     
     // Fetch analytics data
       api.get(`/owner/analytics/${salonId}/weekly`)

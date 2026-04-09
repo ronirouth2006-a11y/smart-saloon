@@ -1,12 +1,12 @@
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-from apscheduler.schedulers.background import BackgroundScheduler
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from contextlib import asynccontextmanager
 import pytz
 import os
 
-from database import Base, engine, SessionLocal
+from database import init_db
 from routers.camera import router as camera_router
 from routers.public import router as public_router
 from routers.owner import router as owner_router
@@ -15,29 +15,50 @@ from routers.admin import router as admin_router
 from routers.auth_routes import router as auth_router
 from models import LiveStatus, Saloon
 
-# 🛠️ Database Table Initialization
-# Automatically create necessary tables
-Base.metadata.create_all(bind=engine)
+# ⏰ Auto-Close Background Job (Midnight IST)
+async def close_all_salons_at_midnight():
+    try:
+        # Set all active salons to offline
+        await Saloon.find(Saloon.is_active == True).update({"$set": {"is_active": False}})
+        # Reset all live bounds to 0
+        await LiveStatus.find_all().update({"$set": {"current_count": 0, "status": "AVAILABLE"}})
+        print("🔔 Midnight CRON: All salons automatically closed and crowd counts reset.")
+    except Exception as e:
+        print(f"Error running midnight CRON: {e}")
 
-app = FastAPI(title="Smart Saloon Crowd System")
+# 🚀 Lifespan Event for Database & Scheduler
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Initialize MongoDB (Beanie)
+    await init_db()
+    
+    # 2. Setup Background Scheduler (Async version)
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(
+        close_all_salons_at_midnight, 
+        'cron', 
+        hour=23, 
+        minute=59, 
+        timezone=pytz.timezone('Asia/Kolkata')
+    )
+    scheduler.start()
+    
+    yield
+    
+    # 3. Shutdown
+    if scheduler.running:
+        scheduler.shutdown()
+
+app = FastAPI(title="Smart Saloon Crowd System (MongoDB)", lifespan=lifespan)
 
 # 🌐 CORS Configuration
-# Allows your frontend (e.g., port 3000/5173) to communicate with the backend
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Important for local development
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# 🔌 Database Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
 
 # 🚀 Router Registration
 app.include_router(camera_router)
@@ -51,61 +72,28 @@ app.include_router(auth_router)
 os.makedirs("static/uploads/salons", exist_ok=True)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-# ⏰ Auto-Close Background Job (Midnight IST)
-def close_all_salons_at_midnight():
-    db = SessionLocal()
-    try:
-        # Set all active salons to offline
-        db.query(Saloon).filter(Saloon.is_active == True).update({"is_active": False})
-        # Reset all live bounds to 0
-        db.query(LiveStatus).update({"current_count": 0, "status": "AVAILABLE"})
-        db.commit()
-        print("🔔 Midnight CRON: All salons automatically closed and crowd counts reset.")
-    except Exception as e:
-        print(f"Error running midnight CRON: {e}")
-    finally:
-        db.close()
-
-scheduler = BackgroundScheduler()
-# Run at 11:59 PM everyday in IST
-scheduler.add_job(close_all_salons_at_midnight, 'cron', hour=23, minute=59, timezone=pytz.timezone('Asia/Kolkata'))
-scheduler.start()
-
-@app.on_event("shutdown")
-def shutdown_event():
-    if scheduler.running:
-        scheduler.shutdown(wait=False)
-
 @app.get("/")
 def home():
-    return {"message": "Saloon Crowd Monitoring API running"}
+    return {"message": "Saloon Crowd Monitoring API (MongoDB) running"}
 
-# 📊 Live Data Endpoint (Update with IST)
+# 📊 Live Data Endpoint (Debug Only)
 @app.get("/debug-db")
-def debug_db(db: Session = Depends(get_db)):
-    # JOIN query to fetch live counts along with salon names and coordinates
-    results = db.query(
-        LiveStatus, 
-        Saloon.name, 
-        Saloon.latitude, 
-        Saloon.longitude
-    ).join(Saloon, LiveStatus.saloon_id == Saloon.id).all()
-    
-    # Set Indian Standard Time (IST) timezone
+async def debug_db():
     ist_timezone = pytz.timezone('Asia/Kolkata')
+    results = await LiveStatus.find_all().to_list()
     
     formatted_data = []
-
-    for status, name, lat, lon in results:
-        # Convert database UTC time to IST
-        ist_time = status.updated_at.astimezone(ist_timezone)
+    for status in results:
+        # Fetch related salon name from its separate document
+        salon = await Saloon.get(status.saloon_id)
+        if not salon: continue
         
+        ist_time = status.updated_at.astimezone(ist_timezone)
         formatted_data.append({
-            "salon_name": name,             # e.g., "banarjeesaloon"
-            "current_count": status.current_count, # Live count from AI camera
-            "latitude": lat,                
-            "longitude": lon,               
-            # 12-hour format (e.g., 06:08:08 AM)
+            "salon_name": salon.name,
+            "current_count": status.current_count,
+            "latitude": salon.latitude,
+            "longitude": salon.longitude,
             "updated_at": ist_time.strftime("%I:%M:%S %p") + " (IST)" 
         })
         

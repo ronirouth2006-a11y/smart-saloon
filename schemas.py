@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
 class OwnerRegister(BaseModel):
     owner_name: str
@@ -26,16 +26,16 @@ class OwnerLogin(BaseModel):
 
 # 2. For receiving data from YOLO camera
 class CameraUpdate(BaseModel):
-    saloon_id: int
+    saloon_id: str  # Updated to str for MongoDB
     people: int
 
-# 3. ✅ NEW: For shop open/close toggle
+# 3. For shop open/close toggle
 class SalonStatusUpdate(BaseModel):
     is_active: bool
 
-# 4. ✅ NEW: Response format for salon list view
+# 4. Response format for salon list view
 class SalonResponse(BaseModel):
-    id: int
+    id: str  # Updated to str for MongoDB
     name: str
     distance: float
     current_count: int
@@ -51,7 +51,7 @@ class BarberCreate(BaseModel):
     specialty: str
 
 class BarberResponse(BaseModel):
-    id: int
+    id: str  # Updated to str for MongoDB
     name: str
     specialty: str
     is_available: bool
