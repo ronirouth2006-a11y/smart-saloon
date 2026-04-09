@@ -29,19 +29,31 @@ async def close_all_salons_at_midnight():
 # 🚀 Lifespan Event for Database & Scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # 1. Initialize MongoDB (Beanie)
-    await init_db()
-    
-    # 2. Setup Background Scheduler (Async version)
-    scheduler = AsyncIOScheduler()
-    scheduler.add_job(
-        close_all_salons_at_midnight, 
-        'cron', 
-        hour=23, 
-        minute=59, 
-        timezone=pytz.timezone('Asia/Kolkata')
-    )
-    scheduler.start()
+    print("🚀 Application starting up...")
+    try:
+        # 1. Initialize MongoDB (Beanie)
+        print("🔍 Step 1: Initializing Database...")
+        await init_db()
+        print("✅ Database Init Complete.")
+        
+        # 2. Setup Background Scheduler (Async version)
+        print("🔍 Step 2: Starting Scheduler...")
+        scheduler = AsyncIOScheduler()
+        scheduler.add_job(
+            close_all_salons_at_midnight, 
+            'cron', 
+            hour=23, 
+            minute=59, 
+            timezone=pytz.timezone('Asia/Kolkata')
+        )
+        scheduler.start()
+        print("✅ Scheduler Started.")
+    except Exception as e:
+        print(f"❌ CRITICAL STARTUP ERROR: {e}")
+        # Make sure logs are flushed
+        import sys
+        sys.stdout.flush()
+        raise e
     
     yield
     
