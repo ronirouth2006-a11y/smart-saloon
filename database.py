@@ -14,7 +14,11 @@ async def init_db():
     try:
         # 🍃 Initialize MongoDB client
         print(f"📡 Connecting to MongoDB Atlas...")
-        client = AsyncIOMotorClient(settings.DATABASE_URL, serverSelectionTimeoutMS=5000)
+        client = AsyncIOMotorClient(
+            settings.DATABASE_URL, 
+            serverSelectionTimeoutMS=5000,
+            tlsAllowInvalidCertificates=True  # Temporary debug for SSL handshake alerts
+        )
         db = client.get_default_database()
         print(f"📂 Initializing Beanie with models...")
         
