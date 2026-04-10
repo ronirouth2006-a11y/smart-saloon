@@ -176,5 +176,3 @@ const FeatureCard = ({ icon, title, desc, variants }) => (
     <p className="text-text-muted leading-relaxed font-medium">{desc}</p>
   </motion.div>
 );
-  );
-}
