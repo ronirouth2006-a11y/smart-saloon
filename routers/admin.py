@@ -5,15 +5,29 @@ router = APIRouter(prefix="/admin", tags=["Admin"])
 
 @router.get("/salons/pending")
 async def get_pending_salons():
-    # 🍃 MongoDB Async Query
-    return await models.Saloon.find(
+    # 🍃 Fetch from MongoDB
+    salons = await models.Saloon.find(
         models.Saloon.is_approved == False, 
         models.Saloon.is_rejected == False
     ).to_list()
+    
+    # 🆔 Map to list of dicts with string IDs for Frontend compatibility
+    return [
+        {
+            **s.dict(),
+            "id": str(s.id)
+        } for s in salons
+    ]
 
 @router.get("/salons/approved")
 async def get_approved_salons():
-    return await models.Saloon.find(models.Saloon.is_approved == True).to_list()
+    salons = await models.Saloon.find(models.Saloon.is_approved == True).to_list()
+    return [
+        {
+            **s.dict(),
+            "id": str(s.id)
+        } for s in salons
+    ]
 
 @router.put("/salons/{salon_id}/approve")
 async def approve_salon(salon_id: str):

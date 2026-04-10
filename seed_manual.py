@@ -13,17 +13,22 @@ def hash_password(password: str) -> str:
 load_dotenv()
 uri = os.getenv("DATABASE_URL")
 
-if not uri or "mongodb" not in uri:
-    print("ERROR: DATABASE_URL not set or not a MongoDB URI!")
-    exit(1)
+import motor.core
+if not hasattr(motor.core.AgnosticClient, 'append_metadata'):
+    motor.core.AgnosticClient.append_metadata = lambda self, x: None
 
 client = pymongo.MongoClient(uri)
 db = client.get_default_database()
 
 def seed_admin_demo():
     try:
+        # 0. CLEANUP FAILED ATTEMPTS (to allow fresh registration)
+        db["owners"].delete_many({"email": {"$in": ["soumajit22@gmail.com", "abcdef22@gmail.com", "soumajit22@2005gmail.com"]}})
+        db["saloons"].delete_many({"name": "hey saloon"})
+        print("CLEANUP: Removed previous failed registration attempts.")
+
         # 1. Create Owner
-        owner_coll = db["Owner"]
+        owner_coll = db["owners"]
         owner = owner_coll.find_one({"email": "demo@saloon.com"})
         if not owner:
             owner_id = owner_coll.insert_one({
@@ -39,7 +44,7 @@ def seed_admin_demo():
             print("INFO: Demo owner already exists.")
 
         # 2. Add 2 Pending Salons
-        saloon_coll = db["Saloon"]
+        saloon_coll = db["saloons"]
         saloon_coll.delete_many({"owner_id": str(owner_id)})
 
         s1 = {
@@ -75,7 +80,7 @@ def seed_admin_demo():
         res2 = saloon_coll.insert_one(s2)
         
         # 3. Initialize LiveStatus
-        status_coll = db["LiveStatus"]
+        status_coll = db["live_status"]
         status_coll.delete_many({"saloon_id": {"$in": [str(res1.inserted_id), str(res2.inserted_id)]}})
         status_coll.insert_many([
             {"saloon_id": str(res1.inserted_id), "current_count": 0, "status": "AVAILABLE"},
