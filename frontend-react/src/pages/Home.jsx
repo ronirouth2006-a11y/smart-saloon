@@ -52,7 +52,7 @@ export default function Home() {
           animate="visible"
           className="space-y-8"
         >
-          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-electric-cyan text-xs font-black tracking-[0.2em] uppercase mb-4">
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background-panel/30 border border-panel-border text-electric-cyan text-xs font-black tracking-[0.2em] uppercase mb-4">
              <Activity size={14} className="animate-pulse" /> Live in West Bengal
           </motion.div>
 
@@ -75,10 +75,10 @@ export default function Home() {
             variants={itemVariants}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
           >
-            <Link to="/map" className="group relative bg-electric-green text-black px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all hover:scale-105 hover:shadow-[0_10px_40px_rgba(46,204,113,0.3)] flex items-center gap-3">
+            <Link to="/map" className="group relative bg-electric-green text-white px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all hover:scale-105 shadow-sm flex items-center gap-3">
               <MapPin size={24} /> {t('find_salon_btn')}
             </Link>
-            <Link to="/map" className="group flex items-center gap-3 bg-white/5 border border-white/10 text-white px-10 py-5 rounded-2xl font-black text-lg no-underline hover:bg-white/10 transition-all">
+            <Link to="/map" className="group flex items-center gap-3 bg-background-panel/50 border border-panel-border text-text-main px-10 py-5 rounded-2xl font-black text-lg no-underline hover:bg-background-panel/80 transition-all shadow-sm">
               {t('open_map_btn')} <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
@@ -97,24 +97,24 @@ export default function Home() {
       </section>
 
       {/* 🔮 THE AI PROCESS: Animated Connectivity */}
-      <section className="bg-background-panel/40 border-y border-white/5 py-12 mb-20">
+      <section className="bg-background-panel/40 border-y border-panel-border py-12 mb-20">
         <div className="max-w-[1000px] mx-auto px-6 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-0">
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-cyan transition-all">
+            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
               <Camera size={28} className="text-text-muted group-hover:text-electric-cyan" />
             </div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">Camera Tracks</span>
           </div>
-          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent mx-8" />
+          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-green transition-all">
+            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-green transition-all">
               <BrainCircuit size={28} className="text-text-muted group-hover:text-electric-green" />
             </div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">AI Processes</span>
           </div>
-          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent mx-8" />
+          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-cyan transition-all">
+            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
               <Smartphone size={28} className="text-text-muted group-hover:text-electric-cyan" />
             </div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">You See Live</span>
@@ -167,12 +167,12 @@ export default function Home() {
 const FeatureCard = ({ icon, title, desc, variants }) => (
   <motion.div 
     variants={variants}
-    className="group p-10 bg-background-card/50 border border-white/5 rounded-[40px] hover:bg-white/5 hover:border-white/10 transition-all duration-500 backdrop-blur-3xl"
+    className="group p-10 bg-background-card/50 border border-panel-border rounded-[40px] hover:bg-background-panel/40 transition-all duration-500 backdrop-blur-3xl"
   >
-    <div className="mb-6 p-4 bg-background-panel inline-block rounded-2xl group-hover:scale-110 transition-transform">
+    <div className="mb-6 p-4 bg-background-panel inline-block rounded-2xl group-hover:scale-110 transition-transform shadow-sm">
       {icon}
     </div>
-    <h3 className="text-2xl font-black mb-4">{title}</h3>
+    <h3 className="text-2xl font-black mb-4 flex items-center gap-2">{title}</h3>
     <p className="text-text-muted leading-relaxed font-medium">{desc}</p>
   </motion.div>
 );

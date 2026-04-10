@@ -9,12 +9,12 @@
   --bg-panel: #181818;
   --panel-border: rgba(255, 255, 255, 0.05);
   --panel-border-hover: rgba(255, 255, 255, 0.15);
-  --primary: #2ecc71; /* Electric Green */
-  --primary-hover: #27ae60;
+  --primary: #10B981; /* AI Emerald */
+  --primary-hover: #059669;
   --accent: #00f5ff; /* Electric Cyan */
-  --text-main: #f8fafc;
+  --text-main: #F3F4F6; /* Crisp Off-White */
   --text-muted: #94a3b8;
-  --success: #2ecc71;
+  --success: #10B981;
   --danger: #ef4444;
   --warning: #f59e0b;
   --charcoal-light: #2d2d2d;
@@ -23,16 +23,16 @@
 }
 
 body.light-mode {
-  --bg-dark: #f8fafc;
+  --bg-dark: #F9FAFB; /* Soft Pearl Off-White */
   --bg-card: #ffffff;
-  --bg-panel: #f1f5f9;
-  --panel-border: rgba(0, 0, 0, 0.08);
-  --panel-border-hover: rgba(0, 0, 0, 0.15);
-  --primary: #059669;
-  --primary-hover: #047857;
-  --accent: #0284c7; /* Indigo-ish blue for light mode */
-  --text-main: #0f172a;
-  --text-muted: #475569;
+  --bg-panel: rgba(255, 255, 255, 0.7);
+  --panel-border: #e5e7eb; /* border-gray-200 equivalent */
+  --panel-border-hover: #d1d5db;
+  --primary: #10B981; /* AI Emerald consistent */
+  --primary-hover: #059669;
+  --accent: #0284c7; /* Indigo-ish blue */
+  --text-main: #111827; /* Deep Slate/Charcoal */
+  --text-muted: #4b5563; /* Slate 600 */
   --charcoal-light: #e2e8f0;
   --charcoal-dark: #f1f5f9; 
 }
@@ -54,6 +54,11 @@ body {
               var(--bg-dark);
   background-attachment: fixed;
   overflow-x: hidden;
+  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+}
+
+.leaflet-marker-icon {
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
 }
 
 /* 🟢 Heartbeat Pulse Animation */
