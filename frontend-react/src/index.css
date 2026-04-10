@@ -17,6 +17,8 @@
   --success: #2ecc71;
   --danger: #ef4444;
   --warning: #f59e0b;
+  --charcoal-light: #2d2d2d;
+  --charcoal-dark: #0a0a0a;
   --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
@@ -28,8 +30,11 @@ body.light-mode {
   --panel-border-hover: rgba(0, 0, 0, 0.15);
   --primary: #059669;
   --primary-hover: #047857;
+  --accent: #0284c7; /* Indigo-ish blue for light mode */
   --text-main: #0f172a;
   --text-muted: #475569;
+  --charcoal-light: #e2e8f0;
+  --charcoal-dark: #f1f5f9; 
 }
 
 * {

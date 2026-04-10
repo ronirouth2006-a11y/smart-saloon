@@ -119,7 +119,7 @@ export default function Register() {
 
     try {
       const res = await api.post('/owner/register', formData);
-      const newSalonId = res.data.id; // Corrected to use sanitized 'id'
+      const newSalonId = res.data.salon_id; // Backend currently returns 'salon_id'
       setRegisteredSalonId(newSalonId);
       localStorage.setItem('pendingStep', '2');
       localStorage.setItem('pendingSalonId', newSalonId);

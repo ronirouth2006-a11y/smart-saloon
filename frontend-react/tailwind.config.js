@@ -8,13 +8,17 @@ export default {
     extend: {
       colors: {
         background: {
-          DEFAULT: '#121212',
-          card: '#1e1e1e',
-          panel: '#181818',
+          DEFAULT: 'var(--bg-dark)',
+          card: 'var(--bg-card)',
+          panel: 'var(--bg-panel)',
+        },
+        text: {
+          main: 'var(--text-main)',
+          muted: 'var(--text-muted)',
         },
         electric: {
-          green: '#2ecc71',
-          cyan: '#00f5ff',
+          green: 'var(--primary)',
+          cyan: 'var(--accent)',
           neon: '#0aef73',
         },
         charcoal: {
