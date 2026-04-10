@@ -125,9 +125,9 @@ async def upload_storefront_photo(
     email: str = Depends(get_current_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
-    salon = await models.Saloon.find_one(models.Saloon.id == salon_id, models.Saloon.owner_id == str(owner.id))
+    salon = await models.Saloon.get(salon_id)
 
-    if not salon:
+    if not salon or salon.owner_id != str(owner.id):
         raise HTTPException(status_code=404, detail="Salon not found or unauthorized")
 
     file_ext = file.filename.split(".")[-1]
@@ -189,8 +189,8 @@ async def get_analytics(
 ):
     # Verify ownership
     owner = await models.Owner.find_one(models.Owner.email == email)
-    salon = await models.Saloon.find_one(models.Saloon.id == salon_id, models.Saloon.owner_id == str(owner.id))
-    if not salon:
+    salon = await models.Saloon.get(salon_id)
+    if not salon or salon.owner_id != str(owner.id):
         raise HTTPException(status_code=404, detail="Salon not found")
 
     analytics = await models.Analytics.find_one(models.Analytics.saloon_id == salon_id)
