@@ -7,7 +7,7 @@ from config import settings
 model = YOLO("yolov8n.pt")
 
 # Backend API
-API_URL = "http://127.0.0.1:8000/camera/update-count"
+API_URL = "https://smart-saloon-qmdh.onrender.com/camera/update-count"
 
 def send_count_to_backend(saloon_id, count):
     payload = {

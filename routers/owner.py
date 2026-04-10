@@ -38,7 +38,7 @@ async def register_owner_and_salon(data: schemas.OwnerRegister):
     new_salon = models.Saloon(
         owner_id=str(new_owner.id),
         name=data.salon_name,
-        location="Map Location", # Added missing required field
+        location=data.location, 
         latitude=data.latitude,
         longitude=data.longitude,
         assistant_phone=data.phone,

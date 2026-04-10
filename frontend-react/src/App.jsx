@@ -11,6 +11,7 @@ import CustomerLogin from './pages/CustomerLogin';
 import SalonDetail from './pages/SalonDetail';
 import Admin from './pages/Admin';
 import RegistrationPending from './pages/RegistrationPending';
+import BottomNav from './components/BottomNav';
 
 function App() {
   const navigate = useNavigate();
@@ -38,57 +39,47 @@ function App() {
   };
 
   return (
-    <div className="container">
-      <header className="header">
-        <Link to="/" className="header-logo">
-          <Scissors size={28} />
-          <span>{t('app_name')}</span>
+    <div className="bg-background min-h-screen font-sans">
+      {/* 🚀 NAV HEADER: Modern Glassmorphism (Hidden on Mobile for cleaner View) */}
+      <header className="hidden lg:flex items-center justify-between px-12 py-6 bg-background-panel/60 backdrop-blur-3xl border-b border-white/5 sticky top-0 z-[1000]">
+        <Link to="/" className="flex items-center gap-3 no-underline group">
+          <div className="p-2 bg-electric-green/20 rounded-xl group-hover:bg-electric-green transition-all duration-300">
+            <Scissors size={24} className="text-electric-green group-hover:text-black transition-colors" />
+          </div>
+          <span className="text-xl font-black tracking-tighter text-white uppercase">{t('app_name')}</span>
         </Link>
-        <nav className="nav-links">
-          <Link to="/map" style={{ color: location.pathname === '/map' ? 'var(--primary)' : 'var(--text-muted)' }}>{t('nav_find')}</Link>
-          <Link to="/customer/login" style={{ color: location.pathname === '/customer/login' ? 'var(--primary)' : 'var(--text-muted)' }}>{t('nav_customer_login')}</Link>
-          <Link to="/register" style={{ color: location.pathname === '/register' ? 'var(--primary)' : 'var(--text-muted)', fontSize: '0.9rem' }}>{t('nav_register')}</Link>
+        
+        <nav className="flex items-center gap-8 font-bold text-xs tracking-widest uppercase">
+          <Link to="/map" className={`hover:text-electric-green transition-colors ${location.pathname === '/map' ? 'text-electric-green' : 'text-text-muted'}`}>{t('nav_find')}</Link>
+          <Link to="/customer/login" className={`hover:text-electric-green transition-colors ${location.pathname === '/customer/login' ? 'text-electric-green' : 'text-text-muted'}`}>{t('nav_customer_login')}</Link>
+          <Link to="/register" className={`hover:text-electric-green transition-colors ${location.pathname === '/register' ? 'text-electric-green' : 'text-text-muted'}`}>{t('nav_register')}</Link>
           
-          <button 
-            onClick={toggleTheme} 
-            style={{ 
-              background: 'transparent', 
-              border: 'none', 
-              color: 'var(--text-main)', 
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: '0.4rem'
-            }}
-            title={theme === 'dark' ? "Switch to Light Mode" : "Switch to Dark Mode"}
-          >
-            {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-          </button>
-
-          <button 
-            onClick={toggleLanguage} 
-            style={{ 
-              background: 'var(--panel-bg)', 
-              border: '1px solid var(--panel-border)', 
-              color: 'var(--text-main)', 
-              padding: '0.4rem 0.8rem', 
-              borderRadius: '8px', 
-              cursor: 'pointer',
-              fontSize: '0.9rem',
-              fontWeight: 'bold',
-            }}
-          >
-            {i18n.language.startsWith('bn') ? 'EN' : 'বাং'}
-          </button>
-
-          <Link to="/owner/login" className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem', fontSize: '0.9rem', borderColor: location.pathname.includes('/owner') ? 'var(--primary)' : 'var(--panel-border)' }}>
-            {t('nav_owner_login')}
-          </Link>
+          <div className="flex items-center gap-4 pl-4 border-l border-white/10">
+            <button onClick={toggleTheme} className="text-text-muted hover:text-white transition-colors">
+              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
+            <button 
+              onClick={toggleLanguage} 
+              className="bg-white/5 border border-white/10 text-white px-3 py-1 rounded-lg hover:bg-white/10 transition-all text-[10px]"
+            >
+              {i18n.language.startsWith('bn') ? 'EN' : 'বাং'}
+            </button>
+            <Link to="/owner/login" className="bg-electric-green text-black px-5 py-2 rounded-xl hover:bg-electric-neon transition-all shadow-[0_4px_20px_rgba(46,204,113,0.3)]">
+              {t('nav_owner_login')}
+            </Link>
+          </div>
         </nav>
       </header>
 
-      <main>
+      {/* 📱 MOBILE HEADER: Simplified (Only Logo) */}
+      <header className="lg:hidden flex justify-center py-4 bg-background-panel/40 backdrop-blur-md border-b border-white/5">
+        <Link to="/" className="flex items-center gap-2">
+          <Scissors size={20} className="text-electric-green" />
+          <span className="text-sm font-black text-white uppercase tracking-wider">{t('app_name')}</span>
+        </Link>
+      </header>
+
+      <main className="pb-24 lg:pb-0">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/map" element={<MapView />} />
@@ -101,6 +92,9 @@ function App() {
           <Route path="/registration-pending" element={<RegistrationPending />} />
         </Routes>
       </main>
+
+      {/* 📱 MOBILE BOTTOM NAV */}
+      <BottomNav />
     </div>
   );
 }

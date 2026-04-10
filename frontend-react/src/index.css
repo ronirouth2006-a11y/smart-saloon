@@ -1,42 +1,36 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
 
 :root {
-  --bg-dark: #0f172a;
-  --bg-gradient-1: #1e1b4b;
-  --bg-gradient-2: #312e81;
-  --panel-bg: rgba(30, 41, 59, 0.4);
-  --panel-border: rgba(255, 255, 255, 0.08);
-  --panel-border-hover: rgba(255, 255, 255, 0.2);
-  --primary: #818cf8;
-  --primary-hover: #6366f1;
-  --zomato-blue: #2d67b2;
-  --zomato-blue-light: #5d8fcd;
-  --zomato-orange: #ff7e33;
-  --zomato-bg: #f4f4f4;
+  --bg-dark: #121212;
+  --bg-card: #1e1e1e;
+  --bg-panel: #181818;
+  --panel-border: rgba(255, 255, 255, 0.05);
+  --panel-border-hover: rgba(255, 255, 255, 0.15);
+  --primary: #2ecc71; /* Electric Green */
+  --primary-hover: #27ae60;
+  --accent: #00f5ff; /* Electric Cyan */
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --success: #10b981;
+  --success: #2ecc71;
   --danger: #ef4444;
   --warning: #f59e0b;
-  --accent: #c084fc;
-  --font-family: 'Outfit', system-ui, -apple-system, sans-serif;
+  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
 }
 
 body.light-mode {
   --bg-dark: #f8fafc;
-  --bg-gradient-1: #e0e7ff;
-  --bg-gradient-2: #c7d2fe;
-  --panel-bg: rgba(255, 255, 255, 0.75);
-  --panel-border: rgba(0, 0, 0, 0.1);
-  --panel-border-hover: rgba(0, 0, 0, 0.25);
-  --primary: #4f46e5;
-  --primary-hover: #4338ca;
+  --bg-card: #ffffff;
+  --bg-panel: #f1f5f9;
+  --panel-border: rgba(0, 0, 0, 0.08);
+  --panel-border-hover: rgba(0, 0, 0, 0.15);
+  --primary: #059669;
+  --primary-hover: #047857;
   --text-main: #0f172a;
   --text-muted: #475569;
-  --success: #059669;
-  --danger: #dc2626;
-  --warning: #d97706;
-  --accent: #9333ea;
 }
 
 * {

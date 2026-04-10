@@ -9,6 +9,7 @@ class OwnerRegister(BaseModel):
     phone: str
     latitude: float
     longitude: float
+    location: str
 
 class CustomerRegister(BaseModel):
     name: str

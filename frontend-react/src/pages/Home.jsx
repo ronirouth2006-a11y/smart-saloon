@@ -1,19 +1,18 @@
 import { Link } from 'react-router-dom';
-import { Sparkles, MapPin, Activity, Download, Camera, BrainCircuit, Smartphone, ChevronRight } from 'lucide-react';
+import { Sparkles, MapPin, Activity, Download, Camera, BrainCircuit, Smartphone, ChevronRight, Scissors } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 
 export default function Home() {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const { t } = useTranslation();
 
   useEffect(() => {
-    // Listen for the PWA install prompt
     const handleBeforeInstallPrompt = (e) => {
       e.preventDefault();
       setDeferredPrompt(e);
     };
-
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
@@ -22,74 +21,160 @@ export default function Home() {
     if (!deferredPrompt) return;
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setDeferredPrompt(null);
+    if (outcome === 'accepted') setDeferredPrompt(null);
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: { staggerChildren: 0.2, delayChildren: 0.1 }
     }
   };
 
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+  };
+
   return (
-    <div className="home-container bg-map-pattern">
+    <div className="bg-background min-h-screen text-text-main overflow-x-hidden">
       
-      {/* SECTION 1: HERO (Text + Buttons) */}
-      <section className="hero-section animate-scale-up" style={{ maxWidth: '900px', margin: '0 auto', padding: '6rem 2rem 2rem 2rem', textAlign: 'center' }}>
-        <h1 style={{ fontSize: '4rem', marginBottom: '1.5rem', lineHeight: '1.1', fontWeight: 800 }}>
-          {t('future_queueing')} <span className="text-gradient">{t('salon_queueing')}</span>
-        </h1>
-        
-        <p className="subtitle animate-slide-up delay-100" style={{ fontSize: '1.3rem', color: 'var(--text-muted)', marginBottom: '3rem', maxWidth: '700px', margin: '0 auto 3rem auto', lineHeight: '1.6' }}>
-          {t('hero_desc')}
-        </p>
+      {/* 🚀 HERO SECTION: High-Fidelity Professional Layout */}
+      <section className="relative px-6 pt-24 pb-12 lg:pt-32 lg:pb-24 max-w-[1400px] mx-auto text-center">
+        {/* Abstract Background Glows */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-electric-green/5 blur-[120px] rounded-full -z-10" />
+        <div className="absolute top-20 right-0 w-[300px] h-[300px] bg-electric-cyan/5 blur-[100px] rounded-full -z-10" />
 
-        <div className="animate-slide-up delay-200" style={{ display: 'flex', gap: '1.5rem', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <Link to="/map" className="btn btn-emerald" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem', padding: '1rem 2.5rem', borderRadius: '50px' }}>
-            <MapPin size={24} /> {t('find_salon_btn')}
-          </Link>
-          <Link to="/map" className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.2rem', padding: '1rem 2.5rem', borderRadius: '50px' }}>
-            {t('open_map_btn')} <ChevronRight size={20} />
-          </Link>
-        </div>
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="space-y-8"
+        >
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 border border-white/10 text-electric-cyan text-xs font-black tracking-[0.2em] uppercase mb-4">
+             <Activity size={14} className="animate-pulse" /> Live in West Bengal
+          </motion.div>
 
-        {deferredPrompt && (
-          <div className="animate-fade-in delay-300" style={{ marginTop: '2rem' }}>
-            <button onClick={handleInstallClick} className="btn" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.5rem', background: '#3b82f6', borderColor: '#3b82f6', padding: '0.8rem 1.5rem', fontSize: '1rem', borderRadius: '50px' }}>
-              <Download size={20} /> {t('install_app')}
-            </button>
-          </div>
-        )}
-      </section>
-
-      {/* TRUST BAR: The AI Loop */}
-      <div className="trust-bar animate-fade-in delay-200 shimmer-effect">
-        <span><Camera size={22} className="text-muted" /> Camera Tracks</span>
-        <ChevronRight size={18} className="trust-arrow" />
-        <span><BrainCircuit size={22} className="text-muted" /> AI Processes</span>
-        <ChevronRight size={18} className="trust-arrow" />
-        <span><Smartphone size={22} className="text-accent" /> You See Live</span>
-      </div>
-
-      {/* SECTION 2: FEATURES (Horizontal Grid) */}
-      <section className="features-section" style={{ padding: '2rem 1rem 6rem 1rem' }}>
-        <div className="grid-3" style={{ maxWidth: '1100px', margin: '0 auto' }}>
-          <Link to="/map" className="glass-panel text-center animate-slide-up delay-100" style={{ display: 'block', textDecoration: 'none', color: 'var(--text-main)', padding: '2.5rem 2rem' }}>
-            <MapPin size={48} className="mb-3 text-gradient" style={{ margin: '0 auto' }} />
-            <h3 className="mb-2" style={{ fontSize: '1.4rem', fontWeight: 700 }}>{t('location_based')}</h3>
-            <p className="text-muted" style={{ fontSize: '1.05rem', lineHeight: '1.6' }}>{t('location_desc')}</p>
-          </Link>
+          <motion.h1 
+            variants={itemVariants}
+            className="text-5xl lg:text-8xl font-black tracking-tighter leading-[0.9] m-0"
+          >
+            {t('future_queueing')} <br/>
+            <span className="text-electric-green inline-block mt-2">WAIT-LESSLY.</span>
+          </motion.h1>
           
-          <Link to="/map" className="glass-panel text-center animate-slide-up delay-200" style={{ display: 'block', textDecoration: 'none', color: 'var(--text-main)', padding: '2.5rem 2rem' }}>
-            <Activity size={48} className="mb-3 text-gradient hover:animate-float" style={{ margin: '0 auto' }} />
-            <h3 className="mb-2" style={{ fontSize: '1.4rem', fontWeight: 700 }}>{t('realtime_tracking')}</h3>
-            <p className="text-muted" style={{ fontSize: '1.05rem', lineHeight: '1.6' }}>{t('realtime_desc')}</p>
-          </Link>
+          <motion.p 
+            variants={itemVariants}
+            className="text-lg lg:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed font-medium"
+          >
+            {t('hero_desc')}
+          </motion.p>
 
-          <Link to="/customer/login" className="glass-panel text-center animate-slide-up delay-300" style={{ display: 'block', textDecoration: 'none', color: 'var(--text-main)', padding: '2.5rem 2rem' }}>
-            <Sparkles size={48} className="mb-3 text-gradient hover:animate-float" style={{ margin: '0 auto' }} />
-            <h3 className="mb-2" style={{ fontSize: '1.4rem', fontWeight: 700 }}>{t('smart_predictions')}</h3>
-            <p className="text-muted" style={{ fontSize: '1.05rem', lineHeight: '1.6' }}>{t('smart_desc')}</p>
-          </Link>
+          <motion.div 
+            variants={itemVariants}
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
+          >
+            <Link to="/map" className="group relative bg-electric-green text-black px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all hover:scale-105 hover:shadow-[0_10px_40px_rgba(46,204,113,0.3)] flex items-center gap-3">
+              <MapPin size={24} /> {t('find_salon_btn')}
+            </Link>
+            <Link to="/map" className="group flex items-center gap-3 bg-white/5 border border-white/10 text-white px-10 py-5 rounded-2xl font-black text-lg no-underline hover:bg-white/10 transition-all">
+              {t('open_map_btn')} <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            </Link>
+          </motion.div>
+
+          {deferredPrompt && (
+            <motion.div variants={itemVariants} className="pt-4">
+              <button 
+                onClick={handleInstallClick}
+                className="inline-flex items-center gap-2 text-text-muted hover:text-electric-cyan transition-colors text-sm font-bold bg-transparent border-none cursor-pointer"
+              >
+                <Download size={18} /> {t('install_app')}
+              </button>
+            </motion.div>
+          )}
+        </motion.div>
+      </section>
+
+      {/* 🔮 THE AI PROCESS: Animated Connectivity */}
+      <section className="bg-background-panel/40 border-y border-white/5 py-12 mb-20">
+        <div className="max-w-[1000px] mx-auto px-6 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-0">
+          <div className="flex flex-col items-center gap-3 group">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-cyan transition-all">
+              <Camera size={28} className="text-text-muted group-hover:text-electric-cyan" />
+            </div>
+            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">Camera Tracks</span>
+          </div>
+          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent mx-8" />
+          <div className="flex flex-col items-center gap-3 group">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-green transition-all">
+              <BrainCircuit size={28} className="text-text-muted group-hover:text-electric-green" />
+            </div>
+            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">AI Processes</span>
+          </div>
+          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-white/10 to-transparent mx-8" />
+          <div className="flex flex-col items-center gap-3 group">
+            <div className="p-4 bg-white/5 rounded-2xl border border-white/10 group-hover:border-electric-cyan transition-all">
+              <Smartphone size={28} className="text-text-muted group-hover:text-electric-cyan" />
+            </div>
+            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">You See Live</span>
+          </div>
         </div>
       </section>
-      
+
+      {/* 💎 FEATURES: Modern Grid with Glassmorphism */}
+      <section className="max-w-[1400px] mx-auto px-6 pb-24">
+        <motion.div 
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={containerVariants}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+        >
+          <FeatureCard 
+            variants={itemVariants}
+            icon={<MapPin size={40} className="text-electric-cyan" />}
+            title={t('location_based')}
+            desc={t('location_desc')}
+          />
+          <FeatureCard 
+            variants={itemVariants}
+            icon={<Activity size={40} className="text-electric-green" />}
+            title={t('realtime_tracking')}
+            desc={t('realtime_desc')}
+          />
+          <FeatureCard 
+            variants={itemVariants}
+            icon={<Sparkles size={40} className="text-electric-cyan" />}
+            title={t('smart_predictions')}
+            desc={t('smart_desc')}
+          />
+        </motion.div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="py-12 border-t border-white/5 text-center px-6">
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Scissors size={20} className="text-electric-green" />
+          <span className="font-black tracking-tighter uppercase text-white">{t('app_name')}</span>
+        </div>
+        <p className="text-text-muted text-xs font-bold tracking-widest uppercase">© 2026 Smart Saloon. Made with Precision.</p>
+      </footer>
     </div>
+  );
+}
+
+const FeatureCard = ({ icon, title, desc, variants }) => (
+  <motion.div 
+    variants={variants}
+    className="group p-10 bg-background-card/50 border border-white/5 rounded-[40px] hover:bg-white/5 hover:border-white/10 transition-all duration-500 backdrop-blur-3xl"
+  >
+    <div className="mb-6 p-4 bg-background-panel inline-block rounded-2xl group-hover:scale-110 transition-transform">
+      {icon}
+    </div>
+    <h3 className="text-2xl font-black mb-4">{title}</h3>
+    <p className="text-text-muted leading-relaxed font-medium">{desc}</p>
+  </motion.div>
+);
   );
 }

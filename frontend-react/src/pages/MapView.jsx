@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
 import { formatLocalNum, formatLocalTime } from '../utils/locale';
+import SkeletonCard from '../components/SkeletonCard';
 
 // Custom hook for debouncing search input
 function useDebounce(value, delay) {
@@ -229,253 +230,174 @@ export default function MapView() {
   }, [salons, radiusFilter, sortBy, favorites]);
 
   return (
-    <div style={{ maxWidth: '1440px', margin: '0 auto', padding: '0 1rem' }}>
-      <div className="header animate-fade-in" style={{ borderBottom: 'none', marginBottom: '0.5rem', padding: '1rem 2rem' }}>
-        <h2 style={{ margin: 0 }}>{t('nearby_salons')}</h2>
-      </div>
-
-      <div className="split-dashboard animate-fade-in">
-        
-        {/* LEFT PANEL: SMART MAP */}
-        <div className="split-map-container">
-          <MapContainer 
-            center={[coords.lat, coords.lon]} 
-            zoom={15} 
-            style={{ height: '100%', width: '100%' }}
-          >
-            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-            <ChangeView center={[coords.lat, coords.lon]} />
-            {processedSalons.map(salon => (
-              <PulsingMarker 
-                key={salon.id} 
-                salon={salon} 
-                isHovered={hoveredSalonId === salon.id} 
-              />
-            ))}
-          </MapContainer>
+    <div className="bg-background min-h-screen text-text-main font-sans">
+      <div className="max-w-[1600px] mx-auto lg:px-6">
+        {/* Desktop Header: Hidden on mobile since we'll use BottomNav and Floating Search */}
+        <div className="hidden lg:flex items-center justify-between py-6 animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-electric-green/10 rounded-2xl border border-electric-green/20">
+              <Navigation size={28} className="text-electric-green" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight m-0">{t('nearby_salons')}</h2>
+              <p className="text-sm text-text-muted m-0">Discover live wait times at premium salons near you.</p>
+            </div>
+          </div>
         </div>
 
-        {/* RIGHT PANEL: RESULTS SIDEBAR */}
-        <div className="split-list-container">
+        {/* 🗺️ MAP ENGINE: 100% Height on Mobile, Fixed Sidebar on Desktop */}
+        <div className="relative flex flex-col lg:flex-row gap-6 h-[calc(100vh-20px)] lg:h-[calc(100vh-140px)] overflow-hidden">
           
-          {/* SEARCH & FILTERS SECTION */}
-          <div className="glass-panel" style={{ padding: '1rem', position: 'sticky', top: 0, zIndex: 10, borderRadius: '15px' }}>
-            <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
-               <div style={{ position: 'relative', flex: 1 }}>
-                  <Search size={18} style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input 
-                    className="input-field" 
-                    placeholder="Search for saloons..." 
-                    value={searchTerm}
-                    onChange={e => setSearchTerm(e.target.value)}
-                    style={{ paddingLeft: '2.8rem', height: '42px', fontSize: '0.95rem' }}
-                  />
-               </div>
-               <button 
-                 className={`btn ${isFilterOpen ? 'btn-primary' : 'btn-secondary'}`}
-                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                 style={{ height: '42px', minWidth: '42px', padding: 0 }}
-               >
-                 <Filter size={20} />
-               </button>
-               
-               {/* 🔄 MODERN REFRESH BUTTON (Upper Area) */}
-               <button 
-                 className="btn btn-secondary" 
-                 onClick={locateAndFetch} 
-                 disabled={loading}
-                 style={{ height: '42px', minWidth: '42px', padding: 0, borderRadius: '12px' }}
-                 title={t('refresh')}
-               >
-                 <RefreshCw size={18} className={loading ? 'spin' : ''} />
-               </button>
+          {/* MOBILE SEARCH FAB (Floating Action Button) */}
+          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] lg:hidden flex gap-2">
+            <div className="relative flex-1 group">
+               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-electric-cyan transition-colors" />
+               <input 
+                 className="w-full bg-background-panel/90 backdrop-blur-xl border border-white/10 rounded-2xl py-3 pl-12 pr-4 shadow-2xl focus:outline-none focus:border-electric-cyan/50 transition-all text-sm" 
+                 placeholder="Search salons..." 
+                 value={searchTerm}
+                 onChange={e => setSearchTerm(e.target.value)}
+               />
             </div>
-
-            {/* Trending Quick Chips (Zomato Style) */}
-            <div style={{ display: 'flex', gap: '0.6rem', overflowX: 'auto', paddingTop: '0.8rem', paddingBottom: '0.2rem', scrollbarWidth: 'none' }}>
-               <button 
-                 className={`btn ${radiusFilter ? 'btn-primary' : 'btn-secondary'}`} 
-                 style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }} 
-                 onClick={() => setRadiusFilter(!radiusFilter)}
-               >
-                 📍 Near Me
-               </button>
-               <button 
-                 className={`btn ${sortBy === 'wait' ? 'btn-primary' : 'btn-secondary'}`} 
-                 style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }} 
-                 onClick={() => setSortBy(sortBy === 'wait' ? 'distance' : 'wait')}
-               >
-                 ⏳ Fastest Wait
-               </button>
-                <button 
-                  className={`btn ${searchTerm.toLowerCase() === 'haircut' ? 'btn-primary' : 'btn-secondary'}`} 
-                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }}
-                  onClick={() => setSearchTerm(searchTerm.toLowerCase() === 'haircut' ? '' : 'Haircut')}
-                >
-                  💇‍♂️ Haircut
-                </button>
-                <button 
-                  className={`btn ${openNowFilter ? 'btn-primary' : 'btn-secondary'}`} 
-                  style={{ fontSize: '0.75rem', padding: '0.35rem 0.8rem', borderRadius: '50px', whiteSpace: 'nowrap' }}
-                  onClick={() => setOpenNowFilter(!openNowFilter)}
-                >
-                  🟢 Open Now
-                </button>
-            </div>
-
-            <AnimatePresence>
-              {isFilterOpen && (
-                <motion.div 
-                  initial={{ height: 0, opacity: 0 }} 
-                  animate={{ height: 'auto', opacity: 1 }} 
-                  exit={{ height: 0, opacity: 0 }}
-                  style={{ overflow: 'hidden' }}
-                >
-                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', paddingTop: '1rem' }}>
-                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
-                       ⭐ 4+ Rating
-                     </button>
-                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
-                       Men
-                     </button>
-                     <button className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.4rem 0.8rem', borderRadius: '50px' }}>
-                       Women
-                     </button>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+            <button 
+               onClick={locateAndFetch}
+               className="p-3 bg-electric-green shadow-2xl rounded-2xl text-white active:scale-95 transition-transform"
+            >
+               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+            </button>
           </div>
 
-          {/* LIST OF SALONS */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', paddingBottom: '2rem' }}>
-            <AnimatePresence>
-              {processedSalons.map((salon, index) => {
-                const isFavorite = favorites.includes(salon.id);
-                const isHovered = hoveredSalonId === salon.id;
-                
-                return (
-                  <motion.div
-                    key={salon.id}
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: index * 0.04 }}
-                    onMouseEnter={() => setHoveredSalonId(salon.id)}
-                    onMouseLeave={() => setHoveredSalonId(null)}
-                    className={`glass-panel ${salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED' ? 'offline-card' : ''}`}
-                    style={{ 
-                      padding: '1rem', 
-                      cursor: 'pointer',
-                      border: isHovered ? '1px solid var(--primary)' : '1px solid var(--panel-border)',
-                      boxShadow: isHovered ? '0 8px 24px rgba(129, 140, 248, 0.2)' : 'none',
-                      borderRadius: '15px',
-                      opacity: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 0.7 : 1,
-                      transition: 'all 0.3s ease'
-                    }}
-                  >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.8rem' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          <h3 style={{ margin: 0, fontSize: '1rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{salon.name}</h3>
-                          {isFavorite && <Heart size={14} fill="var(--danger)" color="var(--danger)" className="animate-pulse" />}
-                        </div>
-                        <p style={{ margin: '0.2rem 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>{salon.location}</p>
-                      </div>
-                      <div className={`status-badge ${salon.status === 'AVAILABLE' ? 'status-active' : 'status-inactive'}`} style={{ 
-                        height: 'fit-content',
-                        backgroundColor: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'rgba(0,0,0,0.3)' : '',
-                        borderColor: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'var(--panel-border)' : ''
-                      }}>
-                         <div className="status-dot"></div>
-                         {salon.status}
-                      </div>
-                    </div>
+          {/* LEFT AREA: MAP */}
+          <div className="w-full h-full lg:flex-[1.5] relative rounded-3xl overflow-hidden shadow-2xl border border-white/5 order-1 lg:order-none">
+            <MapContainer 
+              center={[coords.lat, coords.lon]} 
+              zoom={15} 
+              style={{ height: '100%', width: '100%' }}
+              zoomControl={false}
+            >
+              <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+              <ChangeView center={[coords.lat, coords.lon]} />
+              {processedSalons.map(salon => (
+                <PulsingMarker 
+                  key={salon.id} 
+                  salon={salon} 
+                  isHovered={hoveredSalonId === salon.id} 
+                />
+              ))}
+            </MapContainer>
+          </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.6rem', marginTop: '0.8rem' }}>
-                      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <Clock size={16} color="var(--accent)" />
-                        <div style={{ width: '100%' }}>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '800', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            <motion.span
-                              key={salon.wait_time}
-                              initial={{ scale: 1.3, color: 'var(--primary)' }}
-                              animate={{ scale: 1, color: 'inherit' }}
-                              transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 15 }}
-                              style={{ display: 'inline-block' }}
-                            >
-                              { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') 
-                                ? t('wait_time_na') 
-                                : i18n.language.startsWith('bn') 
-                                  ? `${formatLocalNum(salon.wait_time, 'bn')} মিনিট অপেক্ষা` 
-                                  : `${salon.wait_time}m Wait` 
-                              }
-                            </motion.span>
-                            {/* Live Count Badge */}
-                            {salon.status !== 'OFFLINE' && salon.status !== 'NO LIVE FEED' && (
-                              <motion.span 
-                                key={salon.current_count}
-                                initial={{ scale: 1.4 }}
-                                animate={{ scale: 1 }}
-                                transition={{ duration: 0.3, type: 'spring', stiffness: 300, damping: 15 }}
-                                style={{ 
-                                  fontSize: '0.65rem', 
-                                  padding: '0.1rem 0.4rem', 
-                                  borderRadius: '50px', 
-                                  background: salon.current_count >= 5 ? 'var(--danger)' : 'var(--success)', 
-                                  color: '#fff',
-                                  marginLeft: '0.4rem',
-                                  whiteSpace: 'nowrap',
-                                  display: 'inline-block'
-                                }}>
-                                {t('live_count', { count: formatLocalNum(salon.current_count, i18n.language) })}
-                              </motion.span>
-                            )}
-                          </div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                            {i18n.language.startsWith('bn') ? 'আনুমানিক সময়' : 'Estimated wait time'}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '0.6rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <MapPin size={16} color="var(--primary)" />
-                        <div>
-                          <div style={{ fontSize: '0.85rem', fontWeight: '800' }}>{formatLocalNum(salon.distance.toFixed(1), i18n.language)} km</div>
-                          <div style={{ fontSize: '0.65rem', color: 'var(--text-muted)' }}>
-                            {i18n.language.startsWith('bn') ? 'আপনার থেকে দুরে' : 'Away from you'}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
+          {/* RIGHT AREA: RESULTS SIDEBAR (Desktop) / BOTTOM SHEET (Mobile) */}
+          <div className={`
+            absolute lg:relative bottom-0 left-0 right-0 z-[1600] lg:z-0
+            lg:w-[450px] lg:h-full lg:flex-col lg:gap-4 lg:flex
+            bg-background-panel lg:bg-transparent backdrop-blur-3xl lg:backdrop-blur-none
+            rounded-t-[40px] lg:rounded-none border-t border-white/10 lg:border-none
+            transition-all duration-500 ease-in-out
+            ${processedSalons.length > 0 ? 'h-[40vh]' : 'h-[100px]'}
+            overflow-y-auto lg:overflow-y-visible
+          `}>
+             {/* Mobile Grab Handle */}
+             <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4 lg:hidden"></div>
 
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
-                      <a 
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="btn btn-secondary"
-                        style={{ flex: 1, fontSize: '0.8rem', padding: '0.4rem', borderRadius: '10px' }}
-                      >
-                       <Navigation size={14} /> Directions
-                      </a>
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); toggleFavorite(salon.id); }}
-                        className="btn btn-secondary"
-                        style={{ width: '38px', height: '38px', padding: 0, borderRadius: '10px' }}
-                      >
-                         <Heart size={16} fill={isFavorite ? 'var(--danger)' : 'transparent'} color={isFavorite ? 'var(--danger)' : 'currentColor'} />
-                      </button>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </AnimatePresence>
+            {/* Side Scrollable List */}
+            <div className="flex flex-col gap-4 px-6 lg:px-0 lg:overflow-y-auto lg:pr-2 scrollbar-hide pb-24 lg:pb-0">
+               {/* Desktop Filter Row */}
+               <div className="hidden lg:flex items-center gap-2 mb-2">
+                 <button 
+                   onClick={() => setRadiusFilter(!radiusFilter)}
+                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${radiusFilter ? 'bg-electric-green border-electric-green text-black' : 'bg-background-card border-white/10 text-text-muted hover:border-white/30'}`}
+                 >
+                   NEARBY (10KM)
+                 </button>
+                 <button 
+                    onClick={() => setSortBy(sortBy === 'wait' ? 'distance' : 'wait')}
+                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${sortBy === 'wait' ? 'bg-electric-cyan border-electric-cyan text-black' : 'bg-background-card border-white/10 text-text-muted hover:border-white/30'}`}
+                 >
+                    LOWEST WAIT
+                 </button>
+               </div>
 
-            {processedSalons.length === 0 && !loading && (
-              <div className="text-center" style={{ padding: '3rem' }}>
-                 <Search size={48} style={{ opacity: 0.1, marginBottom: '1rem' }} />
-                 <p className="text-muted">No results found for your search.</p>
-              </div>
-            )}
+               <AnimatePresence mode="popLayout">
+                 {loading ? (
+                   [1,2,3].map(i => <SkeletonCard key={i} />)
+                 ) : processedSalons.map((salon, index) => {
+                   const isFavorite = favorites.includes(salon.id);
+                   const isHovered = hoveredSalonId === salon.id;
+                   
+                   return (
+                     <motion.div
+                       key={salon.id}
+                       initial={{ opacity: 0, y: 30 }}
+                       animate={{ opacity: 1, y: 0 }}
+                       transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                       layout
+                       className={`
+                         group p-5 rounded-[24px] cursor-pointer transition-all relative overflow-hidden
+                         ${isHovered ? 'bg-white/5 border-electric-green/40 shadow-[0_0_30px_rgba(46,204,113,0.1)]' : 'bg-background-card/50 border-white/5'}
+                         border backdrop-blur-md
+                       `}
+                       onMouseEnter={() => setHoveredSalonId(salon.id)}
+                       onMouseLeave={() => setHoveredSalonId(null)}
+                     >
+                       <div className="flex justify-between items-start mb-4">
+                         <div className="flex-1">
+                           <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-black text-lg m-0 group-hover:text-electric-green transition-colors">{salon.name}</h3>
+                              {isFavorite && <Heart size={14} fill="#ef4444" color="#ef4444" />}
+                           </div>
+                           <p className="text-xs text-text-muted flex items-center gap-1">
+                             <MapPin size={12} className="text-electric-cyan" /> {salon.location}
+                           </p>
+                         </div>
+                         <div className={`
+                           px-3 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-1.5 border
+                           ${salon.status === 'AVAILABLE' ? 'bg-electric-green/10 text-electric-green border-electric-green/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}
+                         `}>
+                           <div className={`w-1.5 h-1.5 rounded-full ${salon.status === 'AVAILABLE' ? 'bg-electric-green animate-pulse' : 'bg-red-500'}`} />
+                           {salon.status}
+                         </div>
+                       </div>
+
+                       <div className="grid grid-cols-2 gap-3">
+                         <div className="bg-black/20 p-3 rounded-2xl border border-white/5 flex flex-col justify-center">
+                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">EST. WAIT</span>
+                            <div className="flex items-baseline gap-1">
+                               <span className="text-xl font-black text-electric-green">
+                                  { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? '--' : salon.wait_time }
+                               </span>
+                               <span className="text-xs font-bold text-text-muted">MIN</span>
+                            </div>
+                         </div>
+                         <div className="bg-black/20 p-3 rounded-2xl border border-white/5 flex flex-col justify-center">
+                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">DISTANCE</span>
+                            <div className="flex items-baseline gap-1">
+                               <span className="text-xl font-black text-electric-cyan">{salon.distance.toFixed(1)}</span>
+                               <span className="text-xs font-bold text-text-muted">KM</span>
+                            </div>
+                         </div>
+                       </div>
+
+                       <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
+                          <a 
+                            href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
+                            target="_blank" rel="noreferrer"
+                            className="bg-electric-cyan/20 hover:bg-electric-cyan text-electric-cyan hover:text-black font-black text-xs py-3 rounded-xl transition-all flex-[2] text-center"
+                          >
+                            GET DIRECTIONS
+                          </a>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); toggleFavorite(salon.id); }}
+                            className="bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 p-3 rounded-xl border border-white/10 transition-all flex-[0.5] flex items-center justify-center"
+                          >
+                             <Heart size={18} fill={isFavorite ? "#ef4444" : "transparent"} color={isFavorite ? "#ef4444" : "currentColor"} />
+                          </button>
+                       </div>
+                     </motion.div>
+                   );
+                 })}
+               </AnimatePresence>
+            </div>
           </div>
         </div>
       </div>

@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Power, LogOut, Activity, TrendingUp, BarChart as BarChartIcon, Download, Users as UsersIcon, Settings as SettingsIcon, Plus, Trash2, MapPin } from 'lucide-react';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Power, LogOut, Activity, TrendingUp, BarChart as BarChartIcon, Download, Users as UsersIcon, Settings as SettingsIcon, Plus, Trash2, MapPin, QrCode, ShieldCheck, Zap } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import { QRCodeSVG } from 'qrcode.react';
 import * as htmlToImage from 'html-to-image';
 import { useTranslation } from 'react-i18next';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
+import SkeletonCard from '../components/SkeletonCard';
 
 export default function Dashboard() {
   const { t } = useTranslation();
@@ -22,26 +23,24 @@ export default function Dashboard() {
   const [lastUpdated, setLastUpdated] = useState(null);
   const [timeAgo, setTimeAgo] = useState('');
   const [isPulseWeak, setIsPulseWeak] = useState(false);
-  
-  // Staff State
-  const [barbers, setBarbers] = useState([]);
-  const [newBarberName, setNewBarberName] = useState('');
-  const [newBarberSpecs, setNewBarberSpecs] = useState('');
-
-  // Settings State
   const [salonName, setSalonName] = useState('');
   const [maxLimit, setMaxLimit] = useState(8);
   const [phone, setPhone] = useState('');
   const [lat, setLat] = useState('');
   const [lon, setLon] = useState('');
   
+  // Staff State
+  const [barbers, setBarbers] = useState([]);
+  const [newBarberName, setNewBarberName] = useState('');
+  const [newBarberSpecs, setNewBarberSpecs] = useState('');
+
   const navigate = useNavigate();
 
   // The active salon ID from the owner session
-  const activeSalonId = localStorage.getItem('owner') ? JSON.parse(localStorage.getItem('owner')).id || "" : "";
+  const ownerStr = localStorage.getItem('owner');
+  const activeSalonId = ownerStr ? JSON.parse(ownerStr).id || "" : "";
 
   useEffect(() => {
-    const ownerStr = localStorage.getItem('owner');
     if (!ownerStr) {
       navigate('/owner/login');
       return;
@@ -50,9 +49,8 @@ export default function Dashboard() {
     const salonId = owner.id || "";
     
     // Fetch analytics data
-      api.get(`/owner/analytics/${salonId}/weekly`)
+    api.get(`/owner/analytics/${salonId}/weekly`)
       .then(res => {
-          console.log("Analytics Data [v" + res.data.version + "]:", res.data);
           setHourlyData(res.data.hourly);
           setDailyData(res.data.daily);
       })
@@ -63,19 +61,15 @@ export default function Dashboard() {
       .then(res => setBarbers(res.data))
       .catch(err => console.error("Error fetching barbers", err));
 
-    // Fetch Salon Details for Settings
-      api.get(`/public/salons/${salonId}`)
+    // Fetch Salon Details
+    api.get(`/public/salons/${salonId}`)
       .then(res => {
         setSalonName(res.data.name);
         setPhone(res.data.assistant_phone || '');
         setMaxLimit(res.data.max_limit || 8);
         setLat(res.data.latitude || '');
         setLon(res.data.longitude || '');
-        // Note: is_active and is_approved might not be exposed in /public/ if not approved,
-        // but for owners we will assume they get their own data or it's returned here.
-        if (res.data.hasOwnProperty('is_approved')) {
-            setIsApproved(res.data.is_approved);
-        }
+        if (res.data.hasOwnProperty('is_approved')) setIsApproved(res.data.is_approved);
         setIsActive(res.data.is_active || false);
         setCurrentCount(res.data.current_count || 0);
         setCameraCount(res.data.camera_count || 0);
@@ -84,7 +78,7 @@ export default function Dashboard() {
       })
       .catch(err => console.error("Error fetching settings", err));
 
-    // BACKGROUND POLLING (10s)
+    // 10s Poll
     const interval = setInterval(() => {
       api.get(`/public/salons/${salonId}`)
         .then(res => {
@@ -98,78 +92,31 @@ export default function Dashboard() {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [navigate]);
+  }, [navigate, ownerStr]);
   
-  // Update "time ago" every second
+  // Timer for "time ago"
   useEffect(() => {
     if (!lastUpdated) return;
-    
     const updateTimer = () => {
       const now = new Date();
       const last = new Date(lastUpdated);
       const diffInSeconds = Math.floor((now - last) / 1000);
-      
-      if (diffInSeconds < 60) {
-        setTimeAgo(`${diffInSeconds}s ago`);
-      } else {
-        const mins = Math.floor(diffInSeconds / 60);
-        const secs = diffInSeconds % 60;
-        setTimeAgo(`${mins}m ${secs}s ago`);
-      }
-      
-      // Weak pulse if > 3 mins (180s)
+      if (diffInSeconds < 60) setTimeAgo(`${diffInSeconds}s ago`);
+      else setTimeAgo(`${Math.floor(diffInSeconds / 60)}m ${diffInSeconds % 60}s ago`);
       setIsPulseWeak(diffInSeconds > 180);
     };
-    
     updateTimer();
     const interval = setInterval(updateTimer, 1000);
     return () => clearInterval(interval);
   }, [lastUpdated]);
 
-  const addBarber = async () => {
-    if (!newBarberName || !newBarberSpecs) return;
-    try {
-      const res = await api.post('/owner/barbers', { name: newBarberName, specialty: newBarberSpecs });
-      setBarbers([...barbers, res.data]);
-      setNewBarberName('');
-      setNewBarberSpecs('');
-    } catch (err) { alert('Failed to add staff'); }
-  };
-
-  const removeBarber = async (id) => {
-    try {
-      await api.delete(`/owner/barbers/${id}`);
-      setBarbers(barbers.filter(b => b.id !== id));
-    } catch (err) { alert('Failed to remove staff'); }
-  };
-
-  const updateSettings = async () => {
-    try {
-      await api.patch('/owner/salon', {
-        name: salonName,
-        max_limit: maxLimit,
-        assistant_phone: phone,
-        latitude: parseFloat(lat),
-        longitude: parseFloat(lon)
-      });
-      alert('Settings Updated successfully!');
-    } catch (err) { alert('Failed to update settings'); }
-  };
-
   const toggleStatus = async () => {
     setLoading(true);
     try {
-      const ownerStr = localStorage.getItem('owner');
-      if(ownerStr) {
-        await api.put(`/owner/toggle-status`, { is_active: !isActive });
-        setIsActive(!isActive);
-      }
-    } catch (err) {
-        console.error(err);
-        alert('Failed to update status');
-    } finally {
-        setLoading(false);
-    }
+      await api.put(`/owner/toggle-status`, { is_active: !isActive });
+      setIsActive(!isActive);
+    } catch (err) { alert('Failed to update status'); }
+    finally { setLoading(false); }
   };
 
   const handleLogout = () => {
@@ -180,341 +127,287 @@ export default function Dashboard() {
   const updateOffset = async (newOffset) => {
     if (newOffset < 0) return;
     try {
-        const ownerStr = localStorage.getItem('owner');
-        if (ownerStr) {
-            // Optimistic update
-            setManualOffset(newOffset);
-            setCurrentCount(cameraCount + newOffset);
-            await api.patch(`/owner/salon`, { manual_offset: newOffset });
-        }
+      setManualOffset(newOffset);
+      setCurrentCount(cameraCount + newOffset);
+      await api.patch(`/owner/salon`, { manual_offset: newOffset });
     } catch (err) {
-        console.error(err);
-        alert('Failed to update manual offset');
-        // Revert on failure
-        setManualOffset(manualOffset);
-        setCurrentCount(cameraCount + manualOffset);
+      alert('Failed to update offset');
+      setManualOffset(manualOffset);
+      setCurrentCount(cameraCount + manualOffset);
     }
   };
 
   const downloadQRCode = () => {
     const node = document.getElementById('qr-scan-container');
     if (!node) return;
-    
-    htmlToImage.toPng(node)
-      .then((dataUrl) => {
+    htmlToImage.toPng(node).then(dataUrl => {
         const link = document.createElement('a');
         link.download = `smart-saloon-qr-${activeSalonId}.png`;
         link.href = dataUrl;
         link.click();
-      })
-      .catch((err) => console.error('QR Download Failed', err));
+    });
+  };
+
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { staggerChildren: 0.1 } }
+  };
+
+  const itemVariants = {
+    hidden: { y: 20, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { duration: 0.5, ease: [0.16, 1, 0.3, 1] } }
   };
 
   return (
-    <div style={{ maxWidth: '1000px', margin: '2rem auto' }}>
-      <div className="glass-panel text-center">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
-          <h2 style={{ margin: 0 }}>{t('salon_dashboard')}</h2>
-          <button onClick={handleLogout} className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }}>
-            <LogOut size={16} /> {t('logout')}
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', borderBottom: '1px solid var(--panel-border)' }}>
-          <button 
-            onClick={() => setActiveTab('overview')} 
-            className={`btn ${activeTab === 'overview' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderBottom: activeTab === 'overview' ? '2px solid var(--primary)' : 'none', borderRadius: '8px 8px 0 0' }}
-          >
-            Overview
-          </button>
-          <button 
-            onClick={() => setActiveTab('staff')} 
-            className={`btn ${activeTab === 'staff' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderBottom: activeTab === 'staff' ? '2px solid var(--primary)' : 'none', borderRadius: '8px 8px 0 0' }}
-          >
-            Staff Management
-          </button>
-          <button 
-            onClick={() => setActiveTab('settings')} 
-            className={`btn ${activeTab === 'settings' ? 'btn-primary' : 'btn-secondary'}`}
-            style={{ borderBottom: activeTab === 'settings' ? '2px solid var(--primary)' : 'none', borderRadius: '8px 8px 0 0' }}
-          >
-            Salon Settings
-          </button>
-        </div>
-
-        {activeTab === 'overview' && (
-          <>
-            {/* Marketing Kit Section */}
-            <div style={{ 
-              background: 'rgba(0,0,0,0.2)', 
-              padding: '2rem', 
-              borderRadius: '12px',
-              border: '1px solid var(--panel-border)',
-              marginBottom: '2rem',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center'
-            }}>
-              <h3 className="mb-2 text-gradient">Marketing Kit: QR Engine</h3>
-              <p className="text-muted mb-4 text-center">Print this code and place it on your window. Customers scan it with their phone to join the waitlist instantly without an app.</p>
-              
-              <div 
-                id="qr-scan-container" 
-                style={{ 
-                  background: '#ffffff', 
-                  padding: '2rem', 
-                  borderRadius: '16px', 
-                  display: 'inline-flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
-                  marginBottom: '1.5rem'
-                }}
-              >
-                <QRCodeSVG 
-                  value={`https://smart-saloon.vercel.app/salons/${activeSalonId}`} 
-                  size={220}
-                  fgColor="#2ecc71"
-                  level="H"
-                />
-                <h4 style={{ color: '#121212', marginTop: '1.2rem', marginBottom: 0, fontWeight: 800, fontSize: '1.3rem' }}>
-                  Scan to Skip the Wait!
-                </h4>
-              </div>
-
-              <button onClick={downloadQRCode} className="btn" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: '#3b82f6', borderColor: '#3b82f6' }}>
-                <Download size={20} /> Download High-Res PNG
-              </button>
-            </div>
-
-            {/* Status Toggle Section */}
-            <div style={{ 
-              background: 'rgba(0,0,0,0.2)', 
-              padding: '2rem', 
-              borderRadius: '12px',
-              border: '1px solid var(--panel-border)',
-              marginBottom: '2rem'
-            }}>
-              {!isApproved && (
-                  <div style={{ marginBottom: '1.5rem', background: 'rgba(241, 196, 15, 0.15)', color: '#f1c40f', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(241, 196, 15, 0.3)', textAlign: 'left' }}>
-                      <strong>⏳ Pending Admin Verification</strong>
-                      <p style={{ margin: '0.2rem 0 0 0', fontSize: '0.9rem' }}>Your store will not be visible on the public map until our admin team verifies your submission.</p>
-                  </div>
-              )}
-
-              <Activity size={48} className="mb-2" style={{ color: isActive ? 'var(--success)' : 'var(--danger)' }} />
-              <h3 className="mb-1">{t('store_status')}</h3>
-              <p className="text-muted mb-3">{t('store_status_desc')}</p>
-              
-              <button 
-                onClick={toggleStatus} 
-                className={`btn ${isActive ? 'btn-primary' : 'btn-success'}`}
-                style={{ padding: '1rem 2rem', fontSize: '1.2rem', width: '100%', maxWidth: '400px', backgroundColor: isActive ? 'var(--danger)' : 'var(--success)', opacity: !isApproved ? 0.5 : 1 }}
-                disabled={loading || !isApproved}
-                title={!isApproved ? "Wait for admin approval to open store" : ""}
-              >
-                <Power size={20} />
-                {loading ? 'Processing...' : (isActive ? t('close_store') : t('open_store'))}
-              </button>
-
-              {isActive && lastUpdated && (
-                <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: isPulseWeak ? 'var(--danger)' : 'var(--text-muted)' }}>
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem' }}>
-                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: isPulseWeak ? 'var(--danger)' : 'var(--success)', animation: isPulseWeak ? 'none' : 'pulse 2s infinite' }}></div>
-                    Last camera pulse: <strong style={{ color: isPulseWeak ? 'var(--danger)' : 'inherit' }}>{timeAgo}</strong>
-                  </span>
-                  {isPulseWeak && <p style={{ fontSize: '0.75rem', marginTop: '0.2rem', color: 'var(--danger)' }}>Connection weak. Check your camera feed.</p>}
-                </div>
-              )}
-            </div>
-
-            {/* Manual Crowd Control Section */}
-            <div style={{ 
-              background: 'rgba(0,0,0,0.2)', 
-              padding: '2rem', 
-              borderRadius: '12px',
-              border: '1px solid var(--panel-border)',
-              marginBottom: '2rem'
-            }}>
-              <UsersIcon size={48} className="mb-2" style={{ color: 'var(--primary)' }} />
-              <h3 className="mb-1">Manual Crowd Offset</h3>
-              <p className="text-muted mb-3">Add hidden customers (like people in private cutting rooms) to the total count. This combines with your AI Camera feed!</p>
-              
-              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-around', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1.5rem', borderRadius: '12px', gap: '1rem' }}>
-                  <div style={{ textAlign: 'center' }}>
-                      <div className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>AI CAMERA</div>
-                      <motion.div key={cameraCount} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--text-main)', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '8px', display: 'inline-block' }}>{cameraCount}</motion.div>
-                  </div>
-                  
-                  <div style={{ fontSize: '1.8rem', color: 'var(--text-muted)' }}>+</div>
-                  
-                  <div style={{ textAlign: 'center' }}>
-                      <div className="text-muted" style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>MANUAL OFFSET</div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', background: 'rgba(129, 140, 248, 0.1)', padding: '0.5rem', borderRadius: '12px' }}>
-                          <button onClick={() => updateOffset(manualOffset - 1)} className="btn btn-secondary" style={{ padding: '0.4rem', minWidth: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }} disabled={manualOffset <= 0}>-</button>
-                          <motion.span key={manualOffset} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2rem', fontWeight: 700, minWidth: '40px', color: 'var(--primary)', textAlign: 'center', display: 'inline-block' }}>{manualOffset}</motion.span>
-                          <button onClick={() => updateOffset(manualOffset + 1)} className="btn btn-primary" style={{ padding: '0.4rem', minWidth: '40px', height: '40px', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem' }}>+</button>
-                      </div>
-                  </div>
-                  
-                  <div style={{ fontSize: '1.8rem', color: 'var(--text-muted)' }}>=</div>
-                  
-                  <div style={{ textAlign: 'center' }}>
-                      <div style={{ color: 'var(--success)', fontSize: '0.9rem', fontWeight: 600, marginBottom: '0.5rem', letterSpacing: '0.5px' }}>TOTAL SHOWN</div>
-                      <motion.div key={currentCount} initial={{ scale: 1.3 }} animate={{ scale: 1 }} transition={{ duration: 0.3 }} style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--success)', textShadow: '0 0 15px rgba(16, 185, 129, 0.4)', display: 'inline-block' }}>{currentCount}</motion.div>
-                  </div>
-              </div>
-            </div>
-
-            {/* Analytics Section - Dual Charts */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))', gap: '2rem', marginBottom: '2rem' }}>
-                
-                {/* Left Chart: Hourly Trends (Emerald Green) */}
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
-                        <TrendingUp size={24} style={{ color: '#2ecc71' }} />
-                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>Live Hourly Trend</h3>
-                    </div>
-                    <div style={{ height: '250px', width: '100%' }}>
-                        {hourlyData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={hourlyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis dataKey="hour" stroke="var(--text-muted)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-                            <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} axisLine={false} tickLine={false} />
-                            <Tooltip 
-                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--panel-border)', borderRadius: '12px', color: '#fff' }}
-                                itemStyle={{ color: '#2ecc71', fontWeight: 'bold' }}
-                            />
-                            <Line 
-                                type="monotone" 
-                                dataKey="count" 
-                                name="Customers"
-                                stroke="#2ecc71" 
-                                strokeWidth={4}
-                                dot={{ fill: 'var(--bg-dark)', stroke: '#2ecc71', strokeWidth: 2, r: 4 }}
-                                activeDot={{ fill: '#2ecc71', stroke: '#fff', strokeWidth: 2, r: 6 }}
-                                animationDuration={1500}
-                            />
-                            </LineChart>
-                        </ResponsiveContainer>
-                        ) : (
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><div className="loader"></div></div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Right Chart: 7-Day Footfall (Sun Flower Yellow) */}
-                <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid var(--panel-border)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1.5rem', justifyContent: 'center' }}>
-                        <BarChartIcon size={24} style={{ color: '#f1c40f' }} />
-                        <h3 style={{ margin: 0, fontSize: '1.2rem' }}>7-Day Footfall History</h3>
-                    </div>
-                    <div style={{ height: '250px', width: '100%' }}>
-                        {dailyData.length > 0 ? (
-                        <ResponsiveContainer width="100%" height="100%">
-                            <BarChart data={dailyData} margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                            <XAxis dataKey="day" stroke="var(--text-muted)" fontSize={11} tickMargin={10} axisLine={false} tickLine={false} />
-                            <YAxis stroke="var(--text-muted)" fontSize={11} allowDecimals={false} axisLine={false} tickLine={false} />
-                            <Tooltip 
-                                contentStyle={{ backgroundColor: 'rgba(15, 23, 42, 0.95)', border: '1px solid var(--panel-border)', borderRadius: '12px', color: '#fff' }}
-                                itemStyle={{ color: '#f1c40f', fontWeight: 'bold' }}
-                                cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                            />
-                            <Bar 
-                                dataKey="footfall" 
-                                name="Total Footfall" 
-                                fill="#f1c40f" 
-                                radius={[6, 6, 0, 0]} 
-                                animationDuration={1500}
-                            />
-                            </BarChart>
-                        </ResponsiveContainer>
-                        ) : (
-                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}><div className="loader"></div></div>
-                        )}
-                    </div>
-                </div>
-            </div>
-          </>
-        )}
-
-        {activeTab === 'staff' && (
-          <div className="glass-panel" style={{ textAlign: 'left', padding: '2rem' }}>
-            <h3 className="mb-4"><UsersIcon size={24} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> Staff Management</h3>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '1rem', marginBottom: '2rem' }}>
-              <input 
-                className="input-field" 
-                placeholder="Barber Name" 
-                value={newBarberName} 
-                onChange={e => setNewBarberName(e.target.value)} 
-              />
-              <input 
-                className="input-field" 
-                placeholder="Specialty (e.g. Haircut)" 
-                value={newBarberSpecs} 
-                onChange={e => setNewBarberSpecs(e.target.value)} 
-              />
-              <button className="btn btn-emerald" onClick={addBarber}><Plus size={20} /> Add Staff</button>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              {barbers.map(b => (
-                <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '8px' }}>
-                  <div>
-                    <h4 style={{ margin: 0 }}>{b.name}</h4>
-                    <small className="text-muted">{b.specialty}</small>
-                  </div>
-                  <button onClick={() => removeBarber(b.id)} style={{ color: 'var(--danger)', background: 'none', border: 'none', cursor: 'pointer' }}>
-                    <Trash2 size={20} />
-                  </button>
-                </div>
-              ))}
-              {barbers.length === 0 && <p className="text-muted">No staff members added yet.</p>}
-            </div>
-          </div>
-        )}
-
-        {activeTab === 'settings' && (
-          <div className="glass-panel" style={{ textAlign: 'left', padding: '2rem' }}>
-            <h3 className="mb-4"><SettingsIcon size={24} style={{ verticalAlign: 'middle', marginRight: '0.5rem' }} /> Salon Settings</h3>
-            
-            <div style={{ display: 'grid', gap: '1.5rem' }}>
-              <div className="input-group">
-                <label>Salon Name</label>
-                <input className="input-field" value={salonName} onChange={e => setSalonName(e.target.value)} />
-              </div>
-              <div className="input-group">
-                <label>Max Crowd Limit (AI Threshold)</label>
-                <input type="number" className="input-field" value={maxLimit} onChange={e => setMaxLimit(e.target.value)} />
-              </div>
-              <div className="input-group">
-                <label>Assistant Phone</label>
-                <input className="input-field" value={phone} onChange={e => setPhone(e.target.value)} />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                <div className="input-group">
-                  <label>Latitude</label>
-                  <input className="input-field" value={lat} onChange={e => setLat(e.target.value)} />
-                </div>
-                <div className="input-group">
-                  <label>Longitude</label>
-                  <input className="input-field" value={lon} onChange={e => setLon(e.target.value)} />
-                </div>
-              </div>
-              <button className="btn btn-emerald" style={{ marginTop: '1rem' }} onClick={updateSettings}>Save All Changes</button>
-            </div>
-          </div>
-        )}
+    <div className="bg-background min-h-screen text-text-main pb-20">
+      <div className="max-w-[1200px] mx-auto px-6 pt-12">
         
-        <p className="text-muted" style={{ fontSize: '0.9rem', marginTop: '2rem' }}>
-          {t('camera_data_desc')}
-        </p>
+        {/* 🚀 DASHBOARD HEADER */}
+        <header className="mb-12 flex flex-col md:flex-row md:items-end justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="p-4 bg-electric-green/10 ring-1 ring-electric-green/20 rounded-[30px] shadow-[0_0_40px_rgba(46,204,113,0.1)]">
+              <ShieldCheck size={48} className="text-electric-green" />
+            </div>
+            <div>
+              <h1 className="text-4xl font-black tracking-tighter m-0 uppercase italic">{salonName || "Salon"} <span className="text-electric-green">HQ</span></h1>
+              <p className="text-text-muted font-bold tracking-widest text-[10px] uppercase mt-2">Owner Control Interface • ID_{activeSalonId.slice(-6)}</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 bg-background-panel p-2 rounded-[24px] border border-white/5 shadow-2xl">
+              <TabButton active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<Activity size={16} />} label="Overview" />
+              <TabButton active={activeTab === 'staff'} onClick={() => setActiveTab('staff')} icon={<UsersIcon size={16} />} label="Staff" />
+              <TabButton active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<SettingsIcon size={16} />} label="Settings" />
+            </div>
+            <button onClick={handleLogout} className="p-4 bg-white/5 hover:bg-red-500/10 text-text-muted hover:text-red-400 rounded-2xl transition-all border border-white/10 group">
+              <LogOut size={20} className="group-hover:translate-x-1 transition-transform" />
+            </button>
+          </div>
+        </header>
+
+        <AnimatePresence mode="wait">
+          {activeTab === 'overview' && (
+            <motion.div 
+              key="overview"
+              initial="hidden" animate="visible" exit="hidden" variants={containerVariants}
+              className="space-y-8"
+            >
+              {/* PRIMARY STATUS CARD */}
+              <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                 
+                 {/* Live Crowd Summary */}
+                 <div className="lg:col-span-2 p-8 bg-background-panel/50 backdrop-blur-3xl border border-white/5 rounded-[40px] shadow-2xl flex flex-col justify-between overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-[400px] h-[400px] bg-electric-green/5 blur-[100px] -z-10 rounded-full" />
+                    
+                    <div className="flex justify-between items-start">
+                       <div>
+                          <h3 className="text-3xl font-black m-0 mb-1">Live Population</h3>
+                          <p className="text-text-muted font-bold text-xs uppercase tracking-widest">Aggregate Count (AI + Manual)</p>
+                       </div>
+                       <div className={`px-4 py-2 rounded-xl text-[10px] font-black tracking-widest border transition-all ${isActive ? 'bg-electric-green/10 text-electric-green border-electric-green/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}>
+                          {isActive ? 'STORE OPEN' : 'STORE CLOSED'}
+                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-12 py-8">
+                       <div className="text-center">
+                          <span className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-3">AI Vision</span>
+                          <span className="text-6xl font-black text-white">{cameraCount}</span>
+                       </div>
+                       <div className="text-text-muted text-4xl font-light opacity-20">+</div>
+                       <div className="text-center">
+                          <span className="block text-[10px] font-black text-text-muted uppercase tracking-widest mb-3">Manual Offset</span>
+                          <div className="flex items-center gap-4 bg-white/5 p-2 rounded-2xl border border-white/10">
+                             <button onClick={() => updateOffset(manualOffset - 1)} className="p-2 text-text-muted hover:text-white transition-colors"><Plus size={18} className="rotate-45" /></button>
+                             <span className="text-3xl font-black text-electric-cyan min-w-[30px]">{manualOffset}</span>
+                             <button onClick={() => updateOffset(manualOffset + 1)} className="p-2 text-text-muted hover:text-white transition-colors"><Plus size={18} /></button>
+                          </div>
+                       </div>
+                       <div className="text-text-muted text-4xl font-light opacity-20">=</div>
+                       <div className="text-right flex-1">
+                          <span className="block text-xs font-black text-electric-green uppercase tracking-[0.2em] mb-2">Total Capacity</span>
+                          <span className="text-7xl font-black text-electric-green drop-shadow-[0_0_20px_rgba(46,204,113,0.4)] tracking-tighter">{currentCount}</span>
+                       </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-4 border-t border-white/5 text-[10px] font-bold text-text-muted italic">
+                       <Activity size={14} className={isActive && !isPulseWeak ? 'animate-pulse text-electric-green' : 'text-red-500'} />
+                       {isActive ? `Heartbeat active: ${timeAgo}` : "No active signal"}
+                    </div>
+                 </div>
+
+                 {/* Open/Close Toggle Action */}
+                 <div className={`
+                    p-8 rounded-[40px] flex flex-col items-center justify-center gap-6 transition-all duration-500 border overflow-hidden relative
+                    ${isActive ? 'bg-red-500/5 border-red-500/10' : 'bg-electric-green/10 border-electric-green/20 shadow-[0_0_60px_rgba(46,204,113,0.1)]'}
+                 `}>
+                    <div className={`p-8 rounded-full border-4 transition-all ${isActive ? 'border-red-500/20 text-red-500' : 'border-electric-green animate-pulse text-electric-green'}`}>
+                       <Power size={64} />
+                    </div>
+                    <div className="text-center">
+                       <h4 className="text-xl font-black m-0 mb-1">{isActive ? 'Shutdown Store' : 'Initialize Store'}</h4>
+                       <p className="text-xs text-text-muted font-medium">Toggle visibility on public map</p>
+                    </div>
+                    <button 
+                      onClick={toggleStatus}
+                      disabled={loading || !isApproved}
+                      className={`w-full py-5 rounded-[24px] font-black text-xs tracking-widest uppercase transition-all shadow-2xl active:scale-95 ${isActive ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-electric-green text-black hover:bg-electric-neon'}`}
+                    >
+                       {loading ? 'MODULATING...' : (isActive ? 'CLOSE NOW' : 'GO LIVE NOW')}
+                    </button>
+                 </div>
+              </motion.div>
+
+              {/* ANALYTICS ENGINE */}
+              <motion.div variants={itemVariants} className="grid grid-cols-1 md:grid-cols-2 gap-8 h-[400px]">
+                 <div className="bg-background-panel/30 border border-white/5 rounded-[40px] p-8 flex flex-col">
+                    <div className="flex items-center gap-3 mb-8">
+                       <Zap size={20} className="text-electric-cyan" />
+                       <h4 className="text-lg font-black m-0 uppercase italic tracking-tighter">Live Velocity Pattern</h4>
+                    </div>
+                    <div className="flex-1">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart data={hourlyData}>
+                             <defs>
+                                <linearGradient id="colorWave" x1="0" y1="0" x2="0" y2="1">
+                                   <stop offset="5%" stopColor="#00f5ff" stopOpacity={0.3}/>
+                                   <stop offset="95%" stopColor="#00f5ff" stopOpacity={0}/>
+                                </linearGradient>
+                             </defs>
+                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                             <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                             <Tooltip 
+                                contentStyle={{backgroundColor: '#181818', border: '1px solid #333', borderRadius: '12px'}}
+                                itemStyle={{color: '#00f5ff', fontWeight: 'bold'}}
+                             />
+                             <Area type="monotone" dataKey="count" stroke="#00f5ff" strokeWidth={3} fillOpacity={1} fill="url(#colorWave)" />
+                          </AreaChart>
+                       </ResponsiveContainer>
+                    </div>
+                 </div>
+
+                 <div className="bg-background-panel/30 border border-white/5 rounded-[40px] p-8 flex flex-col">
+                    <div className="flex items-center gap-3 mb-8">
+                       <TrendingUp size={20} className="text-electric-green" />
+                       <h4 className="text-lg font-black m-0 uppercase italic tracking-tighter">7-Day Meta Analysis</h4>
+                    </div>
+                    <div className="flex-1">
+                       <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={dailyData}>
+                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(255,255,255,0.05)" />
+                             <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} />
+                             <Tooltip 
+                                contentStyle={{backgroundColor: '#181818', border: '1px solid #333', borderRadius: '12px'}}
+                                itemStyle={{color: '#2ecc71', fontWeight: 'bold'}}
+                             />
+                             <Bar dataKey="footfall" fill="#2ecc71" radius={[8, 8, 0, 0]} barSize={20} />
+                          </BarChart>
+                       </ResponsiveContainer>
+                    </div>
+                 </div>
+              </motion.div>
+
+              {/* MARKETING KIT: QR ENGINE */}
+              <motion.div variants={itemVariants} className="p-10 bg-background-panel/60 border border-white/5 rounded-[40px] flex flex-col md:flex-row items-center gap-12 group">
+                 <div id="qr-scan-container" className="p-8 bg-white rounded-[32px] group-hover:scale-105 transition-transform duration-500 shadow-[0_0_50px_rgba(255,255,255,0.1)] shrink-0">
+                    <QRCodeSVG value={`https://smart-saloon.onrender.app/salons/${activeSalonId}`} size={200} fgColor="#121212" level="H" />
+                 </div>
+                 <div className="text-left space-y-4">
+                    <div className="flex items-center gap-3">
+                       <QrCode size={32} className="text-electric-cyan" />
+                       <h3 className="text-3xl font-black m-0 tracking-tighter">Marketing Architecture</h3>
+                    </div>
+                    <p className="text-text-muted font-medium text-lg leading-relaxed">Position this QR engine at your entry point. Customers scan to access telemetry data and live wait times without downloading an app.</p>
+                    <button onClick={downloadQRCode} className="bg-white/5 border border-white/10 text-white px-8 py-4 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-white/10 transition-all flex items-center gap-3 group">
+                       <Download size={18} className="group-hover:translate-y-1 transition-transform" /> Export Ultra-Res PNG
+                    </button>
+                 </div>
+              </motion.div>
+            </motion.div>
+          )}
+
+          {activeTab === 'staff' && (
+            <motion.div 
+               key="staff" initial="hidden" animate="visible" exit="hidden" variants={containerVariants}
+               className="bg-background-panel/40 border border-white/5 rounded-[40px] p-10"
+            >
+              <div className="flex items-center gap-4 mb-10">
+                 <UsersIcon size={32} className="text-electric-green" />
+                 <h2 className="text-3xl font-black italic tracking-tighter m-0 uppercase">Team <span className="text-electric-green">Inventory</span></h2>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                 <div className="p-8 bg-white/5 rounded-[32px] border border-dashed border-white/10 flex flex-col gap-5">
+                    <div className="space-y-4">
+                       <input className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-electric-green/40 transition-all" placeholder="Team Member Name" value={newBarberName} onChange={e => setNewBarberName(e.target.value)} />
+                       <input className="w-full bg-black/40 border border-white/10 rounded-xl p-4 text-sm focus:outline-none focus:border-electric-green/40 transition-all" placeholder="Specialty (Top Talent)" value={newBarberSpecs} onChange={e => setNewBarberSpecs(e.target.value)} />
+                    </div>
+                    <button onClick={addBarber} className="bg-electric-green text-black w-full py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-electric-neon transition-all flex items-center justify-center gap-2">
+                       <Plus size={16} /> Deploy Member
+                    </button>
+                 </div>
+
+                 {barbers.map((b, i) => (
+                    <motion.div key={b.id} variants={itemVariants} className="p-8 bg-background-card/50 border border-white/5 rounded-[32px] group relative overflow-hidden">
+                       <div className="flex justify-between items-start">
+                          <div>
+                             <h4 className="text-xl font-black m-0 mb-1">{b.name}</h4>
+                             <span className="text-[10px] text-electric-cyan font-black tracking-widest uppercase">{b.specialty}</span>
+                          </div>
+                          <button onClick={() => removeBarber(b.id)} className="p-3 bg-red-500/10 text-red-400 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity">
+                             <Trash2 size={16} />
+                          </button>
+                       </div>
+                       <div className="mt-8 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-electric-green" />
+                          <span className="text-[10px] font-bold text-text-muted uppercase">Ready for Service</span>
+                       </div>
+                    </motion.div>
+                 ))}
+              </div>
+            </motion.div>
+          )}
+
+          {activeTab === 'settings' && (
+            <motion.div 
+               key="settings" initial="hidden" animate="visible" exit="hidden" variants={containerVariants}
+               className="bg-background-panel/40 border border-white/5 rounded-[40px] p-10 max-w-3xl mx-auto"
+            >
+               <div className="flex items-center gap-4 mb-10">
+                 <SettingsIcon size={32} className="text-electric-cyan" />
+                 <h2 className="text-3xl font-black italic tracking-tighter m-0 uppercase">Core <span className="text-electric-cyan">Config</span></h2>
+              </div>
+              
+              <div className="space-y-8">
+                 <SettingsInput label="Enterprise Name" value={salonName} onChange={e => setSalonName(e.target.value)} />
+                 <SettingsInput label="Capacity Threshold (AI Limit)" type="number" value={maxLimit} onChange={e => setMaxLimit(e.target.value)} />
+                 <SettingsInput label="Direct Liaison Phone" value={phone} onChange={e => setPhone(e.target.value)} />
+                 <div className="grid grid-cols-2 gap-6">
+                    <SettingsInput label="Geocode Latitude" value={lat} onChange={e => setLat(e.target.value)} />
+                    <SettingsInput label="Geocode Longitude" value={lon} onChange={e => setLon(e.target.value)} />
+                 </div>
+                 <button onClick={updateSettings} className="w-full bg-electric-cyan text-black py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-white transition-all mt-4">
+                    Commit Protocol Changes
+                 </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
+
+const TabButton = ({ active, onClick, icon, label }) => (
+  <button onClick={onClick} className={`flex items-center gap-2 px-6 py-3 rounded-[20px] text-[10px] font-black uppercase tracking-[0.15em] transition-all ${active ? 'bg-white text-black' : 'text-text-muted hover:text-white'}`}>
+    {icon} {label}
+  </button>
+);
+
+const SettingsInput = ({ label, ...props }) => (
+  <div className="space-y-2">
+    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">{label}</label>
+    <input {...props} className="w-full bg-black/40 border border-white/5 rounded-2xl p-5 text-sm font-bold focus:outline-none focus:border-electric-cyan/50 transition-all text-white" />
+  </div>
+);
