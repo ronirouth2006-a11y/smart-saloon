@@ -332,6 +332,7 @@ export default function MapView() {
                        animate={{ opacity: 1, y: 0 }}
                        transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
                        layout
+                       whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,245,255,0.15)' }}
                        className={`
                          group p-5 rounded-[24px] cursor-pointer transition-all relative overflow-hidden
                          ${isHovered ? 'bg-white/5 border-electric-green/40 shadow-[0_0_30px_rgba(46,204,113,0.1)]' : 'bg-background-card/50 border-white/5'}

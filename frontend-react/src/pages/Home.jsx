@@ -37,6 +37,11 @@ export default function Home() {
     visible: { y: 0, opacity: 1, transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
   };
 
+  const textVariants = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { opacity: 1, scale: 1, transition: { duration: 0.8, ease: 'easeOut' } }
+  };
+
   return (
     <div className="bg-background min-h-screen text-text-main overflow-x-hidden">
       
@@ -57,7 +62,7 @@ export default function Home() {
           </motion.div>
 
           <motion.h1 
-            variants={itemVariants}
+            variants={textVariants}
             className="text-5xl lg:text-8xl font-black tracking-tighter leading-[0.9] m-0"
           >
             {t('future_queueing')} <br/>
@@ -75,9 +80,11 @@ export default function Home() {
             variants={itemVariants}
             className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
           >
-            <Link to="/map" className="group relative bg-electric-green text-white px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all hover:scale-105 shadow-sm flex items-center gap-3">
-              <MapPin size={24} /> {t('find_salon_btn')}
-            </Link>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link to="/map" className="group relative bg-electric-green text-white px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all shadow-sm flex items-center gap-3">
+                <MapPin size={24} /> {t('find_salon_btn')}
+              </Link>
+            </motion.div>
             <Link to="/map" className="group flex items-center gap-3 bg-background-panel/50 border border-panel-border text-text-main px-10 py-5 rounded-2xl font-black text-lg no-underline hover:bg-background-panel/80 transition-all shadow-sm">
               {t('open_map_btn')} <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
             </Link>
@@ -100,23 +107,23 @@ export default function Home() {
       <section className="bg-background-panel/40 border-y border-panel-border py-12 mb-20">
         <div className="max-w-[1000px] mx-auto px-6 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-0">
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
               <Camera size={28} className="text-text-muted group-hover:text-electric-cyan" />
-            </div>
+            </motion.div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">Camera Tracks</span>
           </div>
           <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-green transition-all">
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, delay: 0.5, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-green transition-all">
               <BrainCircuit size={28} className="text-text-muted group-hover:text-electric-green" />
-            </div>
+            </motion.div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">AI Processes</span>
           </div>
           <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
           <div className="flex flex-col items-center gap-3 group">
-            <div className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
+            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, delay: 1, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
               <Smartphone size={28} className="text-text-muted group-hover:text-electric-cyan" />
-            </div>
+            </motion.div>
             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">You See Live</span>
           </div>
         </div>

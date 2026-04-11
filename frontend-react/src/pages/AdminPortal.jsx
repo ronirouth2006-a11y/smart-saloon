@@ -166,21 +166,33 @@ export default function AdminPortal() {
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-green/30 transition-colors">
+        <motion.div 
+           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(46,204,113,0)', '0px 10px 20px rgba(46,204,113,0.15)', '0px 0px 0px rgba(46,204,113,0)'] }}
+           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-green/30 transition-colors"
+        >
            <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Activity size={120} /></div>
            <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Total Active Salons</p>
            <h3 className="text-5xl font-black text-white">{approvedSalons.length}</h3>
-        </div>
-        <div className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-cyan/30 transition-colors">
+        </motion.div>
+        <motion.div 
+           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(0,245,255,0)', '0px 10px 20px rgba(0,245,255,0.15)', '0px 0px 0px rgba(0,245,255,0)'] }}
+           transition={{ duration: 4, delay: 0.5, repeat: Infinity, ease: 'easeInOut' }}
+           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-cyan/30 transition-colors"
+        >
            <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Clock size={120} /></div>
            <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Pending Requests</p>
            <h3 className="text-5xl font-black text-white">{pendingSalons.length}</h3>
-        </div>
-        <div className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-white/20 transition-colors">
+        </motion.div>
+        <motion.div 
+           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(255,255,255,0)', '0px 10px 20px rgba(255,255,255,0.1)', '0px 0px 0px rgba(255,255,255,0)'] }}
+           transition={{ duration: 4, delay: 1, repeat: Infinity, ease: 'easeInOut' }}
+           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-white/20 transition-colors"
+        >
            <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Radio size={120} /></div>
            <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Monitored Cameras</p>
            <h3 className="text-5xl font-black text-white">{heartbeats.length}</h3>
-        </div>
+        </motion.div>
       </div>
 
       {/* Audit Log */}
