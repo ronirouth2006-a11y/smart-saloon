@@ -10,7 +10,7 @@ import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 import CustomerLogin from './pages/CustomerLogin';
 import SalonDetail from './pages/SalonDetail';
-import Admin from './pages/Admin';
+import AdminPortal from './pages/AdminPortal';
 import RegistrationPending from './pages/RegistrationPending';
 import BottomNav from './components/BottomNav';
 
@@ -99,7 +99,7 @@ function App() {
           <Route path="/customer/login" element={<CustomerLogin />} />
           <Route path="/owner/login" element={<OwnerLogin />} />
           <Route path="/owner/dashboard" element={<Dashboard />} />
-          <Route path="/admin" element={<Admin />} />
+          <Route path="/admin-portal" element={<AdminPortal />} />
           <Route path="/registration-pending" element={<RegistrationPending />} />
         </Routes>
       </main>

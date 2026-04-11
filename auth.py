@@ -10,6 +10,7 @@ from config import settings
 SECRET_KEY = settings.SECRET_KEY 
 ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="owner/login") # Matches your login route
+admin_oauth_scheme = OAuth2PasswordBearer(tokenUrl="admin/api/v1/login")
 
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
@@ -45,6 +46,22 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         email: str = payload.get("sub") # The 'sub' key holds the owner's email
         if email is None:
+            raise credentials_exception
+        return email
+    except JWTError:
+        raise credentials_exception
+
+def get_admin_user(token: str = Depends(admin_oauth_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate admin credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        role: str = payload.get("role")
+        if email is None or role != "super_admin":
             raise credentials_exception
         return email
     except JWTError:

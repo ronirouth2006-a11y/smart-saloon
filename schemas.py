@@ -25,6 +25,10 @@ class OwnerLogin(BaseModel):
     email: str
     password: str
 
+class AdminLogin(BaseModel):
+    email: str
+    password: str
+
 # 2. For receiving data from YOLO camera
 class CameraUpdate(BaseModel):
     saloon_id: str  # Updated to str for MongoDB

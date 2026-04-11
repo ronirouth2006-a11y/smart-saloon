@@ -25,6 +25,15 @@ class Owner(Document):
     class Settings:
         name = "owners"
 
+class AdminUser(Document):
+    email: Indexed(str, unique=True)
+    password: str
+    role: str = "super_admin"
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    class Settings:
+        name = "admin_users"
+
 class Saloon(Document):
     owner_id: str  # ID of the Owner document
     name: Indexed(str)
@@ -44,6 +53,8 @@ class Saloon(Document):
     storefront_photo_url: Optional[str] = None
     camera_url: Optional[str] = None
     manual_offset: int = 0
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
 
     class Settings:
         name = "saloons"

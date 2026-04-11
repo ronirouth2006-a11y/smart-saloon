@@ -13,14 +13,14 @@ if not hasattr(motor.core.AgnosticClient, 'append_metadata'):
 async def init_db():
     try:
         # 🍃 Initialize MongoDB client
-        print(f"📡 Connecting to MongoDB Atlas...")
+        print("Connecting to MongoDB Atlas...")
         client = AsyncIOMotorClient(
             settings.DATABASE_URL, 
             serverSelectionTimeoutMS=5000,
             tlsAllowInvalidCertificates=True  # Temporary debug for SSL handshake alerts
         )
         db = client.get_default_database()
-        print(f"📂 Initializing Beanie with models...")
+        print("Initializing Beanie with models...")
         
         # 📂 Initialize Beanie with the model classes
         await init_beanie(
@@ -28,14 +28,15 @@ async def init_db():
             document_models=[
                 models.User,
                 models.Owner,
+                models.AdminUser,
                 models.Saloon,
                 models.LiveStatus,
                 models.Analytics,
                 models.Barber
             ]
         )
-        print("✅ MongoDB successfully initialized via Beanie!")
+        print("MongoDB successfully initialized via Beanie!")
     except Exception as e:
-        logging.error(f"❌ Database Initialization Failed: {e}")
+        logging.error(f"Database Initialization Failed: {e}")
         # If it still fails, let's try a direct database access fallback (emergency)
         raise e
