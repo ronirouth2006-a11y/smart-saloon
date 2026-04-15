@@ -41,17 +41,34 @@ def create_reset_token(sub: str):
 from fastapi import Request
 
 # 3. Security Guard: Verify the User
-def get_current_user(token: str = Depends(oauth2_scheme)):
+def get_owner_user(token: str = Depends(oauth2_scheme)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Decodes the token sent from admin.html
+        # Decodes the token
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub") # The 'sub' key holds the owner's email
-        if email is None:
+        email: str = payload.get("sub")
+        token_type = payload.get("type", "owner") # Fallback to owner for backwards compat
+        if email is None or token_type not in (None, "owner"):
+            raise credentials_exception
+        return email
+    except JWTError:
+        raise credentials_exception
+
+def get_customer_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate customer credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        if email is None or token_type != "customer":
             raise credentials_exception
         return email
     except JWTError:

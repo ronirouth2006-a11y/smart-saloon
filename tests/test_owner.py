@@ -75,3 +75,14 @@ async def test_owner_protected_route(client):
     
     assert toggle_response.status_code == 200
     assert toggle_response.json()["active"] is False
+
+@pytest.mark.asyncio
+async def test_owner_route_rejects_customer_token(client):
+    # Register and login a customer
+    await client.post("/customer/register", json={"name": "Cust", "email": "cust_owner@example.com", "password": "pass"})
+    cust_login = await client.post("/customer/login", json={"email": "cust_owner@example.com", "password": "pass"})
+    cust_token = cust_login.json()["access_token"]
+
+    # Attempt to toggle status (Owner route)
+    resp = await client.put("/owner/toggle-status", json={"is_active": True}, headers={"Authorization": f"Bearer {cust_token}"})
+    assert resp.status_code == 401

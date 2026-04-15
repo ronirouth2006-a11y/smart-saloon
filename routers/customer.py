@@ -39,7 +39,7 @@ class SyncFavorites(BaseModel):
     salon_ids: List[str]  # Changed to str for MongoDB IDs
 
 @router.post("/favorites/sync")
-async def sync_favorites(data: SyncFavorites, email: str = Depends(auth.get_current_user)):
+async def sync_favorites(data: SyncFavorites, email: str = Depends(auth.get_customer_user)):
     user = await models.User.find_one(models.User.email == email)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")

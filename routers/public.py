@@ -46,7 +46,7 @@ async def get_nearby(
     ist_timezone = pytz.timezone('Asia/Kolkata')
 
     for s in salons:
-        if s.latitude and s.longitude:
+        if s.latitude is not None and s.longitude is not None:
             distance = haversine(user_lat, user_lon, s.latitude, s.longitude)
 
             # 3. Get Live Crowd Count

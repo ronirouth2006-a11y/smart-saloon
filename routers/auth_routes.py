@@ -25,10 +25,12 @@ async def forgot_password(data: ForgotPasswordRequest):
     reset_token = auth.create_reset_token(owner.email)
     
     # Log the token (SMTP placeholder)
-    print("\n" + "="*50)
-    print(f"[PASSWORD RESET REQUEST] for {owner.email}")
-    print(f"[RESET TOKEN] {reset_token}")
-    print("="*50 + "\n")
+    from config import settings
+    if settings.LOCAL_DEBUG:
+        print("\n" + "="*50)
+        print(f"[PASSWORD RESET REQUEST] for {owner.email}")
+        print(f"[RESET TOKEN] {reset_token}")
+        print("="*50 + "\n")
     
     return {"message": "Reset code generated check console."}
 

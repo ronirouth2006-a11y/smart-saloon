@@ -59,3 +59,22 @@ async def test_customer_sync_favorites(client):
     )
     assert sync_response.status_code == 200
     assert sync_response.json()["favorites"] == []
+
+@pytest.mark.asyncio
+async def test_customer_route_rejects_owner_token(client):
+    # Register an owner to get an owner token directly
+    reg = await client.post("/owner/register", json={
+        "owner_name": "Test Owner 2",
+        "email": "owner2@example.com",
+        "password": "pass",
+        "salon_name": "Test Salon 2",
+        "phone": "123",
+        "latitude": 0,
+        "longitude": 0,
+        "location": "Loc"
+    })
+    owner_token = reg.json().get("access_token")
+
+    # Attempt to sync favorites (Customer route)
+    resp = await client.post("/customer/favorites/sync", json={"salon_ids": []}, headers={"Authorization": f"Bearer {owner_token}"})
+    assert resp.status_code == 401

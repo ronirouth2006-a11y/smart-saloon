@@ -25,6 +25,17 @@ async def update_count(
     else:
         status = "BUSY"
 
+    # 🛑 Validate that the Salon actually exists
+    from bson.errors import InvalidId
+    try:
+        salon = await models.Saloon.get(data.saloon_id)
+        if not salon:
+            raise HTTPException(status_code=404, detail="Salon not found")
+    except InvalidId:
+        raise HTTPException(status_code=400, detail="Invalid Salon ID format")
+    except Exception:
+        raise HTTPException(status_code=404, detail="Salon not found")
+
     # 🍃 Find or Create LiveStatus for the salon
     record = await LiveStatus.find_one(LiveStatus.saloon_id == data.saloon_id)
 

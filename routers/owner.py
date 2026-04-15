@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 import models, schemas, auth
 from datetime import datetime, timezone, timedelta
-from auth import get_current_user
+from auth import get_owner_user
 import uuid
 import os
 import shutil
@@ -57,7 +57,7 @@ async def register_owner_and_salon(data: schemas.OwnerRegister):
     )
     await new_status.insert()
 
-    token = auth.create_token({"sub": new_owner.email})
+    token = auth.create_token({"sub": new_owner.email, "type": "owner"})
 
     return {
         "message": "Registration Successful",
@@ -84,7 +84,7 @@ async def login(data: schemas.OwnerLogin):
         if not salon.is_approved:
             raise HTTPException(status_code=403, detail="Registration Pending")
 
-    token = auth.create_token({"sub": owner.email})
+    token = auth.create_token({"sub": owner.email, "type": "owner"})
 
     return {
         "access_token": token,
@@ -98,7 +98,7 @@ async def login(data: schemas.OwnerLogin):
 @router.put("/toggle-status")
 async def toggle_status(
     data: schemas.SalonStatusUpdate,
-    email: str = Depends(get_current_user)
+    email: str = Depends(get_owner_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
     if not owner:
@@ -126,7 +126,7 @@ async def toggle_status(
 async def upload_storefront_photo(
     salon_id: str,
     file: UploadFile = File(...),
-    email: str = Depends(get_current_user)
+    email: str = Depends(get_owner_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.get(salon_id)
@@ -157,7 +157,7 @@ async def upload_storefront_photo(
 @router.put("/live-status")
 async def update_live_crowd(
     current_count: int = Query(..., ge=0),
-    email: str = Depends(get_current_user)
+    email: str = Depends(get_owner_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
@@ -194,7 +194,7 @@ async def update_live_crowd(
 @router.get("/analytics/{salon_id}")
 async def get_analytics(
     salon_id: str,
-    email: str = Depends(get_current_user)
+    email: str = Depends(get_owner_user)
 ):
     # Verify ownership
     owner = await models.Owner.find_one(models.Owner.email == email)
@@ -217,7 +217,7 @@ async def get_analytics(
 @router.get("/analytics/{salon_id}/weekly")
 async def get_weekly_analytics(
     salon_id: str,
-    email: str = Depends(get_current_user)
+    email: str = Depends(get_owner_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
     if not owner:
@@ -267,14 +267,14 @@ async def get_weekly_analytics(
 # 6️⃣ STAFF MANAGEMENT (BARBERS)
 # =========================================================
 @router.get("/barbers", response_model=list[schemas.BarberResponse])
-async def get_barbers(email: str = Depends(get_current_user)):
+async def get_barbers(email: str = Depends(get_owner_user)):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     barbers = await models.Barber.find(models.Barber.saloon_id == str(salon.id)).to_list()
     return [schemas.BarberResponse(id=str(b.id), name=b.name, specialty=b.specialty, is_available=b.is_available) for b in barbers]
 
 @router.post("/barbers", response_model=schemas.BarberResponse)
-async def add_barber(data: schemas.BarberCreate, email: str = Depends(get_current_user)):
+async def add_barber(data: schemas.BarberCreate, email: str = Depends(get_owner_user)):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
@@ -288,7 +288,7 @@ async def add_barber(data: schemas.BarberCreate, email: str = Depends(get_curren
     return schemas.BarberResponse(id=str(new_barber.id), name=new_barber.name, specialty=new_barber.specialty, is_available=new_barber.is_available)
 
 @router.delete("/barbers/{barber_id}")
-async def delete_barber(barber_id: str, email: str = Depends(get_current_user)):
+async def delete_barber(barber_id: str, email: str = Depends(get_owner_user)):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
@@ -303,7 +303,7 @@ async def delete_barber(barber_id: str, email: str = Depends(get_current_user)):
 # 7️⃣ SALON SETTINGS UPDATE
 # =========================================================
 @router.patch("/salon")
-async def update_salon(data: schemas.SalonUpdate, email: str = Depends(get_current_user)):
+async def update_salon(data: schemas.SalonUpdate, email: str = Depends(get_owner_user)):
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
