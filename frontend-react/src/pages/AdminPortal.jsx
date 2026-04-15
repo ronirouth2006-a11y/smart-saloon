@@ -416,11 +416,11 @@ const AuthInput = ({ label, icon, onChange, ...props }) => (
     <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-dim ml-3">{label}</label>
     <div className="relative group">
        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth">{icon}</div>
-       <input 
-         {...props} 
-         onChange={(e) => onChange(e.target.value)}
-         className="w-full bg-background-main/50 border border-border-subtle rounded-[28px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main placeholder:text-text-dim/30" 
-       />
+        <input 
+          {...props} 
+          onChange={(e) => onChange(e.target.value)}
+          className="w-full bg-background-main border border-border-subtle rounded-[28px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-panel transition-smooth text-text-main placeholder:text-text-muted" 
+        />
     </div>
   </div>
 );
