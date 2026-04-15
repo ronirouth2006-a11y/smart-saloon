@@ -72,28 +72,28 @@ const PulsingMarker = ({ salon, isHovered, onClick }) => {
       zIndexOffset={isHovered ? 1000 : 0}
       eventHandlers={{ click: onClick }}
     >
-      <Popup>
-        <div style={{ padding: '0.4rem', minWidth: '120px' }}>
-          <strong style={{ display: 'block', marginBottom: '0.4rem', fontSize: '0.9rem' }}>{salon.name}</strong>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-            <span style={{ 
-              color: (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? 'var(--text-muted)' : 'var(--primary)', 
-              fontWeight: 'bold',
-              fontSize: '0.85rem'
-            }}>
+      <Popup className="premium-popup">
+        <div className="p-2 min-w-[140px] bg-background-card rounded-xl">
+          <strong className="block mb-2 text-sm font-heading font-black text-text-main truncate">{salon.name}</strong>
+          <div className="flex items-center gap-2">
+            <span className={`text-[11px] font-black tracking-tight ${
+              (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') 
+                ? 'text-text-dim' 
+                : 'text-primary'
+            }`}>
               { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') 
                 ? t('wait_time_na') 
                 : `${salon.wait_time}m Wait` 
               }
             </span>
             {salon.status !== 'OFFLINE' && salon.status !== 'NO LIVE FEED' && (
-              <div style={{ 
-                width: '8px', 
-                height: '8px', 
-                borderRadius: '50%', 
-                background: salon.current_count >= 5 ? 'var(--danger)' : 'var(--success)' 
-              }}></div>
+              <div className={`w-2 h-2 rounded-full ${
+                salon.current_count >= 5 ? 'bg-danger shadow-[0_0_8px_var(--danger)]' : 'bg-primary shadow-[0_0_8px_var(--primary-glow)]'
+              }`} />
             )}
+          </div>
+          <div className="mt-2 text-[9px] font-bold text-text-muted uppercase tracking-wider">
+            {salon.location || 'Haldia Node'}
           </div>
         </div>
       </Popup>

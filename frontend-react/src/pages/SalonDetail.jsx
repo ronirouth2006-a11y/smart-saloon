@@ -23,7 +23,7 @@ import { formatLocalNum, formatLocalTime } from '../utils/locale';
 // Custom Marker Icons
 const userIcon = L.divIcon({
   className: 'custom-div-icon',
-  html: `<div class="pulse-marker" style="background: #2d67b2; box-shadow: 0 0 0 rgba(45, 103, 178, 0.4);"></div>`,
+  html: `<div class="pulse-marker bg-accent shadow-[0_0_0_rgba(59,130,246,0.4)]"></div>`,
   iconSize: [20, 20],
   iconAnchor: [10, 10]
 });
@@ -100,15 +100,15 @@ export default function SalonDetail() {
   }, [id, userCoords]);
 
   if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', marginTop: '4rem' }}><div className="loader"></div></div>;
+    return <div className="flex justify-center mt-16"><div className="loader"></div></div>;
   }
 
   if (error || !salon) {
     return (
-      <div className="text-center" style={{ marginTop: '4rem', padding: '2rem' }}>
-        <Info size={48} color="var(--danger)" style={{ marginBottom: '1rem' }} />
-        <h2>{error || "Salon not found"}</h2>
-        <button onClick={() => navigate('/map')} className="btn mt-4">Back to Search</button>
+      <div className="text-center mt-16 p-8">
+        <Info size={48} className="text-danger mb-4 mx-auto" />
+        <h2 className="text-2xl font-heading font-black">{error || "Salon not found"}</h2>
+        <button onClick={() => navigate('/map')} className="w-full max-w-xs bg-primary text-background-main py-4 rounded-2xl font-black text-xs uppercase tracking-widest mt-8 shadow-premium">Back to Search</button>
       </div>
     );
   }
@@ -191,7 +191,7 @@ export default function SalonDetail() {
                     <MapContainer 
                         center={[userCoords.lat, userCoords.lon]} 
                         zoom={15} 
-                        style={{ height: '100%', width: '100%' }}
+                        className="h-full w-full"
                         zoomControl={false}
                     >
                         <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />

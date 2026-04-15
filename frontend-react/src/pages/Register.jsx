@@ -221,7 +221,11 @@ export default function Register() {
             <AnimatePresence mode="wait">
               {step === 1 ? (
                 <motion.form 
-                  key="step1" {...stepVariants}
+                  key="step1" 
+                  variants={stepVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                   onSubmit={handleRegister} className="space-y-8"
                 >
                   <div className="space-y-6">
@@ -263,7 +267,11 @@ export default function Register() {
                 </motion.form>
               ) : (
                 <motion.div 
-                  key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  key="step2" 
+                  variants={stepVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
                   className="text-center space-y-10"
                 >
                    <div className="p-6 bg-background-main rounded-3xl border border-border-subtle">
@@ -311,7 +319,7 @@ export default function Register() {
 }
 
 const StepIndicator = ({ number, title, desc, active }) => (
-  <div className={`flex items-center gap-8 p-10 rounded-[48px] border transition-smooth ${active ? 'bg-background-card border-border-subtle shadow-premium' : 'bg-transparent border-transparent opacity-30 shadow-none'}`}>
+  <div className={`flex items-center gap-8 p-10 rounded-[48px] border transition-smooth ${active ? 'bg-background-card border-border-bright shadow-premium' : 'bg-transparent border-transparent opacity-30 shadow-none'}`}>
      <span className={`text-4xl font-heading font-black italic tracking-tighter ${active ? 'text-primary' : 'text-text-dim'}`}>{number}</span>
      <div>
         <h4 className="text-sm font-black uppercase tracking-[0.2em] m-0">{title}</h4>
@@ -328,7 +336,7 @@ const FormInput = ({ icon, label, type="text", ...props }) => (
        <input 
          {...props} type={type} required
          onChange={e => props.onChange(e.target.value)}
-         className="w-full bg-background-main/50 border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main shadow-inner" 
+         className="w-full bg-background-main border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main shadow-inner" 
        />
     </div>
   </div>
