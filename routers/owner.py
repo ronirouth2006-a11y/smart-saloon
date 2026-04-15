@@ -8,8 +8,19 @@ import shutil
 import pytz
 import random
 import logging
+import cloudinary
+import cloudinary.uploader
+from config import settings
 
 logger = logging.getLogger("smart_saloon")
+
+# ☁️ Cloudinary Configuration
+cloudinary.config(
+    cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+    api_key=settings.CLOUDINARY_API_KEY,
+    api_secret=settings.CLOUDINARY_API_SECRET,
+    secure=True
+)
 
 router = APIRouter(prefix="/owner", tags=["Owner"])
 
@@ -164,16 +175,29 @@ async def upload_storefront_photo(
     if file_ext not in valid_extensions or getattr(file, "content_type", "") not in valid_content_types:
         raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and WEBP allowed.")
         
-    unique_filename = f"{uuid.uuid4()}.{file_ext}"
-    file_path = f"static/uploads/salons/{unique_filename}"
+    try:
+        # Upload to Cloudinary
+        upload_result = cloudinary.uploader.upload(
+            file.file,
+            folder="smart-saloon/storefronts",
+            public_id=f"salon_{salon_id}_{uuid.uuid4().hex[:8]}",
+            overwrite=True,
+            resource_type="image"
+        )
+        
+        hosted_url = upload_result.get("secure_url")
+        if not hosted_url:
+            raise Exception("Cloudinary did not return a secure URL.")
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+        salon.storefront_photo_url = hosted_url
+        await salon.save()
 
-    salon.storefront_photo_url = f"/static/uploads/salons/{unique_filename}"
-    await salon.save()
+        logger.info(f"Storefront photo uploaded to Cloudinary for salon {salon_id}: {hosted_url}")
+        return {"message": "Photo uploaded successfully", "url": salon.storefront_photo_url}
 
-    return {"message": "Photo uploaded successfully", "url": salon.storefront_photo_url}
+    except Exception as e:
+        logger.error(f"Cloudinary upload failed for salon {salon_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cloud storage upload failed: {str(e)}")
 
 # =========================================================
 # 3.6️⃣ MANUAL OVERRIDE (Update Crowd)

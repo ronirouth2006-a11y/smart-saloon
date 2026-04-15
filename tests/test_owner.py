@@ -86,3 +86,45 @@ async def test_owner_route_rejects_customer_token(client):
     # Attempt to toggle status (Owner route)
     resp = await client.put("/owner/toggle-status", json={"is_active": True}, headers={"Authorization": f"Bearer {cust_token}"})
     assert resp.status_code == 401
+
+@pytest.mark.asyncio
+async def test_upload_storefront_photo_mocked(client, monkeypatch):
+    # 1. Register and login
+    await client.post("/owner/register", json={
+        "owner_name": "Upload Owner", "email": "upload@test.com", "password": "pass",
+        "salon_name": "Upload Salon", "phone": "1", "latitude": 0, "longitude": 0, "location": "Loc"
+    })
+    # Auto-approve
+    owner = await Owner.find_one(Owner.email == "upload@test.com")
+    salon = await Saloon.find_one(Saloon.owner_id == str(owner.id))
+    salon.is_approved = True
+    await salon.save()
+    
+    login = await client.post("/owner/login", json={"email": "upload@test.com", "password": "pass"})
+    token = login.json()["access_token"]
+    
+    # 2. Mock Cloudinary
+    mock_url = "https://res.cloudinary.com/test/image/upload/v1/smart-saloon/storefronts/test.jpg"
+    def mock_upload(*args, **kwargs):
+        return {"secure_url": mock_url}
+    
+    import cloudinary.uploader
+    monkeypatch.setattr(cloudinary.uploader, "upload", mock_upload)
+    
+    # 3. Test Upload
+    from io import BytesIO
+    file_content = b"fake image content"
+    file = BytesIO(file_content)
+    
+    response = await client.post(
+        f"/owner/{salon.id}/upload-photo",
+        headers={"Authorization": f"Bearer {token}"},
+        files={"file": ("test.jpg", file, "image/jpeg")}
+    )
+    
+    assert response.status_code == 200
+    assert response.json()["url"] == mock_url
+    
+    # 4. Verify DB
+    updated_salon = await Saloon.get(salon.id)
+    assert updated_salon.storefront_photo_url == mock_url
