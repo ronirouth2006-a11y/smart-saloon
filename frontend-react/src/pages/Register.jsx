@@ -1,6 +1,10 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { MapPin, UserPlus, Scissors, Mail, Lock, Phone, User, Store, Activity, ChevronRight, Camera, CheckCircle } from 'lucide-react';
+import { 
+  MapPin, UserPlus, Scissors, Mail, Lock, Phone, User, Store, 
+  Activity, ChevronRight, Camera, CheckCircle2, Upload, Navigation, 
+  Layout, ArrowLeft, RefreshCw, Star, Heart, ArrowRight, Plus
+} from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from 'react-leaflet';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -110,7 +114,7 @@ export default function Register() {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!formData.latitude || !formData.longitude) {
+    if (formData.latitude === null || formData.longitude === null) {
       setError('Required: Set shop location on map.');
       return;
     }
@@ -123,6 +127,10 @@ export default function Register() {
       setRegisteredSalonId(newSalonId);
       localStorage.setItem('pendingStep', '2');
       localStorage.setItem('pendingSalonId', newSalonId);
+      localStorage.setItem('pendingOwnerCredentials', JSON.stringify({
+        email: formData.email,
+        password: formData.password
+      }));
       if (res.data.access_token) localStorage.setItem('tempRegistrationToken', res.data.access_token);
       setStep(2);
     } catch (err) {
@@ -164,151 +172,163 @@ export default function Register() {
     visible: { opacity: 1, y: 0, transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } }
   };
 
+  const stepVariants = {
+    hidden: { opacity: 0, x: 20 },
+    visible: { opacity: 1, x: 0, transition: { duration: 0.5 } },
+    exit: { opacity: 0, x: -20, transition: { duration: 0.3 } }
+  };
+
   return (
-    <div className="bg-background min-h-screen text-text-main pb-24 pt-12 px-6">
-      <div className="max-w-[700px] mx-auto text-center mb-12">
-         <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="inline-block p-4 bg-electric-green/10 rounded-[30px] mb-6">
-            <UserPlus size={40} className="text-electric-green" />
-         </motion.div>
-         <h1 className="text-4xl lg:text-6xl font-black tracking-tighter uppercase italic m-0 line-height-[0.9]">
-            {t('register_title')} <span className="text-electric-green">INITIATION</span>
-         </h1>
-         <p className="text-text-muted font-bold tracking-[0.2em] text-xs uppercase mt-4">{t('register_subtitle')}</p>
-      </div>
-
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="max-w-[1000px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 items-start"
-      >
-        {/* LEFT COLUMN: GUIDELINES & PROGRESS */}
-        <div className="hidden lg:flex flex-col gap-6 pt-8">
-           <StepIndicator active={step >= 1} number="01" title="Credentials" desc="Set your enterprise name & access keys." />
-           <StepIndicator active={step >= 2} number="02" title="Geocode" desc="Tag your exact location in West Bengal." />
-           <StepIndicator active={step >= 3} number="03" title="Verification" desc="Upload live imagery for admin audit." />
-           
-           <div className="mt-8 p-8 bg-background-panel/50 border border-white/5 rounded-[40px] backdrop-blur-3xl">
-              <div className="flex items-center gap-3 mb-4 text-electric-cyan">
-                 <Activity size={24} />
-                 <span className="font-black text-xs uppercase tracking-widest">Why Register?</span>
-              </div>
-              <p className="text-sm text-text-muted leading-relaxed font-medium">Join the largest real-time salon network in India. Reduce wait times, increase footfall, and manage your staff with AI-driven analytics.</p>
-           </div>
+    <div className="bg-background-main min-h-screen text-text-main font-sans selection:bg-primary/20 pb-32">
+      <div className="max-w-[1400px] mx-auto px-10 pt-20">
+        
+        {/* 🚀 HEADER AREA */}
+        <div className="text-center mb-16 space-y-4">
+           <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="inline-block p-4 bg-primary/10 rounded-3xl mb-4 border border-primary/20">
+              <UserPlus size={40} className="text-primary" />
+           </motion.div>
+           <h1 className="text-5xl lg:text-7xl font-heading font-black tracking-tighter uppercase italic leading-[0.9]">
+              Partner <span className="text-primary italic">Activation.</span>
+           </h1>
+           <p className="text-text-muted text-lg font-medium max-w-xl mx-auto">Digitize your salon operations and join the future of discovery.</p>
         </div>
 
-        {/* RIGHT COLUMN: FORM ENGINE */}
-        <div className="bg-background-card/40 border border-white/5 rounded-[40px] p-8 lg:p-12 shadow-2xl backdrop-blur-2xl">
-          <AnimatePresence mode="wait">
-            {step === 1 ? (
-              <motion.form 
-                key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}
-                onSubmit={handleRegister} className="space-y-6"
-              >
-                <div className="space-y-4">
-                  <InputWithIcon icon={<User size={18}/>} label={t('owner_name')} value={formData.owner_name} onChange={v => setFormData({...formData, owner_name: v})} placeholder="Full Legal Name" />
-                  <InputWithIcon icon={<Mail size={18}/>} label={t('email_address')} type="email" value={formData.email} onChange={v => setFormData({...formData, email: v})} placeholder="admin@enterprise.com" />
-                  <InputWithIcon icon={<Lock size={18}/>} label={t('password')} type="password" value={formData.password} onChange={v => setFormData({...formData, password: v})} placeholder="Security Protocol" />
-                  <InputWithIcon icon={<Phone size={18}/>} label={t('phone_number')} value={formData.phone} onChange={v => setFormData({...formData, phone: v})} placeholder="+91 XXXX XXX XXX" />
-                  
-                  <div className="h-[1px] bg-white/5 my-8" />
-                  
-                  <InputWithIcon icon={<Store size={18}/>} label="Salon Identity" value={formData.salon_name} onChange={v => setFormData({...formData, salon_name: v})} placeholder="Public Display Name" />
-                  <InputWithIcon icon={<MapPin size={18}/>} label="Physical Address" value={formData.location} onChange={v => setFormData({...formData, location: v})} placeholder="St, Area, City, Pin" />
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start"
+        >
+          {/* LEFT: GUIDELINES & PROGRESS TRACKER */}
+          <div className="hidden lg:flex flex-col gap-10">
+             <div className="space-y-6">
+                <StepIndicator active={step >= 1} number="01" title="Node Configuration" desc="Define your secure access and brand credentials." />
+                <StepIndicator active={step >= 2} number="02" title="Visual Verification" desc="Upload physical storefront telemetry for audit." />
+             </div>
+             
+             <div className="p-10 bg-background-card border border-border-subtle rounded-[48px] shadow-premium relative overflow-hidden group">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-accent/5 blur-3xl -z-10" />
+                <div className="flex items-center gap-3 mb-6 text-accent">
+                   <Activity size={24} />
+                   <span className="font-black text-[10px] uppercase tracking-[0.2em]">Operational Logic</span>
                 </div>
+                <p className="text-text-muted leading-relaxed font-medium">Join the network to gain precision telemetry, reduce queue abandonment, and optimize staff footfall via our AI discovery engine.</p>
+             </div>
+          </div>
 
-                <div className="pt-6">
-                   <button 
-                     type="button" onClick={getGPSLocation}
-                     className={`w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-widest transition-all border ${locationSuccess ? 'bg-electric-green/10 border-electric-green text-electric-green' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}
-                   >
-                     <MapPin size={18} /> {locating ? 'GPS LOCKING...' : (locationSuccess ? 'VIRTUAL TAG READY' : 'TAG GPS COORDINATES')}
-                   </button>
-                </div>
+          {/* RIGHT: ONBOARDING ENGINE */}
+          <div className="bg-background-card border border-border-subtle rounded-[48px] p-10 lg:p-14 shadow-premium backdrop-blur-2xl">
+            <AnimatePresence mode="wait">
+              {step === 1 ? (
+                <motion.form 
+                  key="step1" {...stepVariants}
+                  onSubmit={handleRegister} className="space-y-8"
+                >
+                  <div className="space-y-6">
+                    <FormInput icon={<User size={18}/>} label="OWNER NAME" value={formData.owner_name} onChange={v => setFormData({...formData, owner_name: v})} placeholder="Alex Thorne" />
+                    <FormInput icon={<Mail size={18}/>} label="EMAIL ADDRESS" type="email" value={formData.email} onChange={v => setFormData({...formData, email: v})} placeholder="alex@saloon.ai" />
+                    <FormInput icon={<Lock size={18}/>} label="SECURE PASSWORD" type="password" value={formData.password} onChange={v => setFormData({...formData, password: v})} placeholder="••••••••" />
+                    <FormInput icon={<Phone size={18}/>} label="PHONE NUMBER" value={formData.phone} onChange={v => setFormData({...formData, phone: v})} placeholder="+91 9876543210" />
 
-                {locationSuccess && (
-                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="rounded-3xl overflow-hidden border-2 border-white/10 shadow-2xl h-[300px]">
-                     <MapContainer center={[formData.latitude, formData.longitude]} zoom={16} style={{ height: '100%', width: '100%' }}>
-                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
-                        <ChangeView center={[formData.latitude, formData.longitude]} zoom={16} />
-                        <MarkerEvents />
-                     </MapContainer>
-                  </motion.div>
-                )}
+                    <div className="h-[1px] bg-border-subtle my-10" />
+                    
+                    <FormInput icon={<Store size={18}/>} label="SALON BRAND" value={formData.salon_name} onChange={v => setFormData({...formData, salon_name: v})} placeholder="Emerald Cuts HQ" />
+                    <FormInput icon={<MapPin size={18}/>} label="GEO-LOCATION" value={formData.location} onChange={v => setFormData({...formData, location: v})} placeholder="Haldia, WB" />
+                  </div>
 
-                {error && <p className="text-red-400 text-[10px] font-black uppercase tracking-widest text-center">{error}</p>}
+                  <div className="pt-4">
+                     <button 
+                       type="button" onClick={getGPSLocation}
+                       className={`w-full py-5 rounded-2xl flex items-center justify-center gap-3 font-black text-[10px] uppercase tracking-[0.2em] transition-smooth border ${locationSuccess ? 'bg-primary/10 border-primary text-primary' : 'bg-background-main border-border-subtle text-text-muted hover:border-text-main'}`}
+                     >
+                       <MapPin size={18} /> {locating ? 'GPS LOCKING...' : (locationSuccess ? 'GPS LOCK SECURED' : 'INITIALIZE GPS TAG')}
+                     </button>
+                  </div>
 
-                <button type="submit" disabled={loading} className="w-full bg-electric-green text-black py-5 rounded-[24px] font-black text-xs uppercase tracking-[0.2em] shadow-2xl hover:bg-electric-neon transition-all">
-                  {loading ? 'MODULATING...' : 'INITIATE REGISTRATION'}
-                </button>
-              </motion.form>
-            ) : (
-              <motion.div 
-                key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
-                className="text-center space-y-8"
-              >
-                 <div className="p-4 bg-white/5 rounded-2xl border border-white/10">
-                    <h3 className="text-xl font-black m-0 mb-2 uppercase">Physical Audit</h3>
-                    <p className="text-text-muted text-sm border-t border-white/5 pt-4">Capture your storefront to prevent spoofing and verify location accuracy.</p>
-                 </div>
+                  {locationSuccess && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} className="rounded-[32px] overflow-hidden border border-border-subtle shadow-premium h-[350px]">
+                       <MapContainer center={[formData.latitude, formData.longitude]} zoom={16} style={{ height: '100%', width: '100%' }}>
+                          <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
+                          <ChangeView center={[formData.latitude, formData.longitude]} zoom={16} />
+                          <MarkerEvents />
+                       </MapContainer>
+                    </motion.div>
+                  )}
 
-                 <div className="relative group cursor-pointer">
-                    <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} id="camera-upload" className="hidden" />
-                    <label htmlFor="camera-upload" className="block">
-                       {!photoPreview ? (
-                         <div className="aspect-video bg-charcoal-dark border-2 border-dashed border-white/10 rounded-[32px] flex flex-col items-center justify-center gap-4 hover:border-electric-cyan/40 transition-all">
-                            <Camera size={48} className="text-text-muted group-hover:text-electric-cyan" />
-                            <span className="text-[10px] font-black uppercase tracking-widest text-text-muted">Engage Optical Sensor</span>
-                         </div>
-                       ) : (
-                         <img src={photoPreview} alt="Preview" className="w-full h-auto rounded-[32px] border border-white/10 shadow-2xl" />
-                       )}
-                    </label>
-                 </div>
+                  {error && <p className="text-danger text-[10px] font-black uppercase tracking-widest text-center">{error}</p>}
 
-                 {photoPreview && (
-                   <div className="flex gap-4">
-                      <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="flex-1 bg-white/5 border border-white/10 text-white py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">Retake</button>
-                      <button onClick={handlePhotoUpload} disabled={loading} className="flex-[2] bg-electric-green text-black py-4 rounded-xl font-black text-[10px] uppercase tracking-widest">
-                         {loading ? 'UPLOADING...' : 'COMPLETE PROTOCOL'}
-                      </button>
+                  <button type="submit" disabled={loading} className="w-full bg-primary text-background-main py-6 rounded-[28px] font-black text-xs uppercase tracking-[0.2em] shadow-premium hover:shadow-[0_0_20px_var(--primary-glow)] transition-smooth">
+                    {loading ? 'INITIALIZING...' : 'ACTIVATE PARTNERSHIP'}
+                  </button>
+                </motion.form>
+              ) : (
+                <motion.div 
+                  key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}
+                  className="text-center space-y-10"
+                >
+                   <div className="p-6 bg-background-main rounded-3xl border border-border-subtle">
+                      <h3 className="text-2xl font-heading font-black uppercase tracking-tight mb-2">Physical Audit</h3>
+                      <p className="text-text-muted text-sm font-medium">Capture a direct storefront visual to verify brand authenticity.</p>
                    </div>
-                 )}
-                 {error && <p className="text-red-400 text-[10px] font-black uppercase tracking-widest text-center">{error}</p>}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
+  
+                   <div className="relative group cursor-pointer">
+                      <input type="file" accept="image/*" capture="environment" onChange={handlePhotoCapture} id="camera-upload" className="hidden" />
+                      <label htmlFor="camera-upload" className="block">
+                         {!photoPreview ? (
+                           <div className="aspect-video bg-background-main border-2 border-dashed border-border-subtle rounded-[40px] flex flex-col items-center justify-center gap-6 hover:border-primary/40 transition-smooth group shadow-premium">
+                              <Camera size={56} className="text-text-dim group-hover:text-primary transition-colors" />
+                              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim">Engage Optical Sensor</span>
+                           </div>
+                         ) : (
+                           <img src={photoPreview} alt="Preview" className="w-full h-auto rounded-[40px] border border-border-subtle shadow-premium" />
+                         )}
+                      </label>
+                   </div>
+  
+                   {photoPreview && (
+                     <div className="flex gap-4">
+                        <button onClick={() => { setPhotoFile(null); setPhotoPreview(null); }} className="flex-1 bg-white/5 border border-border-subtle text-text-main py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-white/10 transition-smooth">Reset Scan</button>
+                        <button onClick={handlePhotoUpload} disabled={loading} className="flex-[2] bg-primary text-background-main py-5 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-premium">
+                           {loading ? 'SYNCING...' : 'COMPLETE ONBOARDING'}
+                        </button>
+                     </div>
+                   )}
+                   {error && <p className="text-danger text-[10px] font-black uppercase tracking-widest text-center">{error}</p>}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
 
-      <div className="text-center mt-12">
-        <p className="text-text-muted font-bold text-xs uppercase tracking-widest">
-           {t('already_have_account')} <Link to="/owner/login" className="text-electric-cyan shadow-cyan">AUTHENTICATE HERE</Link>
-        </p>
+        <div className="text-center mt-20">
+          <p className="text-text-dim font-black text-[10px] uppercase tracking-[0.25em]">
+             Already an active node? <Link to="/owner/login" className="text-primary hover:text-accent transition-colors ml-2 underline underline-offset-4">Authenticate HQ</Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
 const StepIndicator = ({ number, title, desc, active }) => (
-  <div className={`flex items-center gap-6 p-6 rounded-[32px] border transition-all duration-500 ${active ? 'bg-white/5 border-white/10' : 'bg-transparent border-transparent opacity-20'}`}>
-     <span className={`text-3xl font-black italic tracking-tighter ${active ? 'text-electric-green' : 'text-white/20'}`}>{number}</span>
+  <div className={`flex items-center gap-8 p-10 rounded-[48px] border transition-smooth ${active ? 'bg-background-card border-border-subtle shadow-premium' : 'bg-transparent border-transparent opacity-30 shadow-none'}`}>
+     <span className={`text-4xl font-heading font-black italic tracking-tighter ${active ? 'text-primary' : 'text-text-dim'}`}>{number}</span>
      <div>
-        <h4 className="text-sm font-black m-0 uppercase tracking-widest">{title}</h4>
-        <p className="text-[10px] text-text-muted font-medium m-0 mt-1 uppercase tracking-widest">{desc}</p>
+        <h4 className="text-sm font-black uppercase tracking-[0.2em] m-0">{title}</h4>
+        <p className="text-[10px] text-text-dim font-bold uppercase tracking-[0.1em] m-0 mt-2">{desc}</p>
      </div>
   </div>
 );
 
-const InputWithIcon = ({ icon, label, type="text", ...props }) => (
-  <div className="space-y-2">
-    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-muted ml-1">{label}</label>
+const FormInput = ({ icon, label, type="text", ...props }) => (
+  <div className="space-y-3">
+    <label className="text-[10px] font-black uppercase tracking-[0.2em] text-text-dim ml-2">{label}</label>
     <div className="relative group">
-       <div className="absolute left-5 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-electric-cyan transition-colors">{icon}</div>
+       <div className="absolute left-6 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth">{icon}</div>
        <input 
          {...props} type={type} required
          onChange={e => props.onChange(e.target.value)}
-         className="w-full bg-black/40 border border-white/5 rounded-2xl py-4 pl-14 pr-6 text-sm font-bold focus:outline-none focus:border-electric-cyan/50 transition-all text-white" 
+         className="w-full bg-background-main/50 border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main shadow-inner" 
        />
     </div>
   </div>

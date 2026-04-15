@@ -10,7 +10,8 @@ import {
   Timer,
   Scissors,
   ChevronRight,
-  Info
+  Info,
+  Navigation
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -113,69 +114,79 @@ export default function SalonDetail() {
   }
 
   return (
-    <div style={{ background: 'var(--zomato-bg)', minHeight: '100vh', color: '#333', paddingBottom: '3rem' }}>
+    <div className="bg-background-main min-h-screen text-text-main font-sans selection:bg-primary/20 pb-32">
       
-      {/* 1. Header Area (Location Bar) */}
-      <div className="zomato-header">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          <div style={{ background: 'white', padding: '0.5rem', borderRadius: '50%', display: 'flex' }}>
-            <MapPin size={18} color="var(--zomato-orange)" />
-          </div>
-          <div>
-            <div style={{ fontWeight: 'bold', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-              Gandhi Nagar Col... <span style={{ fontSize: '0.7rem' }}>▼</span>
-            </div>
-            <div style={{ fontSize: '0.75rem', color: '#555' }}>Haldia, West Bengal</div>
-          </div>
+      {/* 🚀 PREMIUM HEADER BAR */}
+      <header className="sticky top-0 z-[1000] bg-background-main/80 backdrop-blur-2xl border-b border-border-subtle py-6 px-8 flex items-center justify-between">
+        <button 
+          onClick={() => navigate('/map')} 
+          className="p-3 bg-white/5 hover:bg-white/10 rounded-2xl border border-border-subtle transition-smooth group"
+        >
+          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+        </button>
+        <div className="text-center">
+          <h2 className="text-sm font-heading font-black uppercase tracking-widest">{salon.name}</h2>
+          <p className="text-[10px] text-text-muted font-bold tracking-widest uppercase mt-0.5">{salon.location || 'Haldia Node'}</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-            <div style={{ width: '40px', height: '20px', background: '#ddd', borderRadius: '20px', position: 'relative' }}>
-                <div style={{ width: '16px', height: '16px', background: 'white', borderRadius: '50%', position: 'absolute', right: '2px', top: '2px' }}></div>
-            </div>
-        </div>
-      </div>
+        <div className="w-12" /> {/* Spacer for symmetry */}
+      </header>
 
-      <div className="container" style={{ maxWidth: '480px', paddingTop: '1.5rem' }}>
+      <div className="max-w-[800px] mx-auto px-8 pt-10 space-y-10">
         
-        {/* Back Link */}
-        <div onClick={() => navigate('/map')} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '0.4rem', marginBottom: '1rem', color: '#666', fontWeight: '500' }}>
-            <ArrowLeft size={18} /> My Salons
-        </div>
+        {/* 📊 LIVE STATUS OVERVIEW */}
+        <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
+           {/* Queue Card */}
+           <div className="p-8 bg-background-card border border-border-subtle rounded-[40px] shadow-premium relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 blur-3xl -z-10" />
+              <div className="flex items-center gap-4 mb-8">
+                 <div className="p-4 bg-primary/10 rounded-2xl text-primary">
+                    <Users size={28} />
+                 </div>
+                 <div>
+                    <span className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em]">Active Population</span>
+                    <h3 className="text-4xl font-heading font-black">{salon.current_count} <span className="text-lg text-text-muted">WAITING</span></h3>
+                 </div>
+              </div>
+              <div className="flex items-center justify-between pt-6 border-t border-border-subtle">
+                 <div className="flex items-center gap-2 text-primary font-bold text-xs">
+                    <div className="w-2 h-2 rounded-full bg-primary pulse-primary" />
+                    LIVE TELEMETRY
+                 </div>
+                 <button onClick={fetchSalon} className="text-text-dim hover:text-text-main transition-colors"><RefreshCw size={16} /></button>
+              </div>
+           </div>
 
-        {/* 2. Queue Info Card (The Blue Card) */}
-        <div className="zomato-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div>
-               <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: '800' }}>Queue Status</h2>
-               <p style={{ margin: '0.3rem 0 0', opacity: 0.9 }}>
-                 {salon.is_active ? "Your spot is being monitored..." : "Salon is currently offline"}
-               </p>
-               <div style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.8 }}>
-                 {salon.name.toUpperCase()} • {formatLocalTime(salon.updated_at.split(' (IST)')[0], 'en')}
-               </div>
-            </div>
-            <div style={{ background: 'rgba(255,255,255,0.2)', padding: '0.8rem', borderRadius: '12px' }}>
-                <Scissors size={28} />
-            </div>
-          </div>
-          
-          <div style={{ marginTop: '1.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <button 
-              onClick={fetchSalon}
-              style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', padding: '0.4rem 0.8rem', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', cursor: 'pointer' }}
-            >
-              <RefreshCw size={14} /> Refresh
-            </button>
-          </div>
-        </div>
+           {/* Wait Time Card */}
+           <div className="p-8 bg-background-panel border border-border-subtle rounded-[40px] shadow-premium group">
+              <div className="flex items-center gap-4 mb-8">
+                 <div className="p-4 bg-accent/10 rounded-2xl text-accent">
+                    <Timer size={28} />
+                 </div>
+                 <div>
+                    <span className="text-[10px] font-black text-text-dim uppercase tracking-[0.2em]">Estimated Buffer</span>
+                    <h3 className="text-4xl font-heading font-black">
+                      {(salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? '--' : salon.wait_time} 
+                      <span className="text-lg text-text-muted ml-2">MINUTES</span>
+                    </h3>
+                 </div>
+              </div>
+              <div className="text-[10px] font-bold text-text-dim uppercase tracking-widest pt-6 border-t border-border-subtle">
+                 Last Sync: {formatLocalTime(salon.updated_at.split(' (IST)')[0], 'en')}
+              </div>
+           </div>
+        </section>
 
-        {/* 3. Live Tracking Map Section */}
-        <div style={{ marginBottom: '2rem' }}>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1rem', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1rem' }}>
-               <Timer size={18} /> Live Tracking
-            </h3>
+        {/* 🗺️ LIVE TRACKING HUB */}
+        <section>
+            <div className="flex items-center justify-between mb-6">
+               <h3 className="text-lg font-heading font-black uppercase tracking-widest flex items-center gap-2">
+                  <Navigation size={20} className="text-primary" /> Routing Intelligence
+               </h3>
+               {distance && <span className="text-xs font-black text-accent bg-accent/5 px-4 py-1.5 rounded-full border border-accent/20">{distance} KM AWAY</span>}
+            </div>
             
-            <div style={{ height: '350px', borderRadius: '20px', border: '1px solid #ddd', overflow: 'hidden', position: 'relative' }}>
+            <div className="h-[400px] rounded-[48px] border border-border-subtle shadow-premium overflow-hidden relative group">
+                <div className="absolute inset-0 bg-background-main/20 group-hover:bg-transparent transition-colors z-10 pointer-events-none" />
                 {userCoords && salon.latitude && (
                     <MapContainer 
                         center={[userCoords.lat, userCoords.lon]} 
@@ -183,107 +194,49 @@ export default function SalonDetail() {
                         style={{ height: '100%', width: '100%' }}
                         zoomControl={false}
                     >
-                        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" />
                         <ChangeView center={[userCoords.lat, userCoords.lon]} />
-                        
                         <Marker position={[userCoords.lat, userCoords.lon]} icon={userIcon} />
                         <Marker position={[salon.latitude, salon.longitude]} icon={salonIcon} />
-                        
-                        <Polyline 
-                            positions={[
-                                [userCoords.lat, userCoords.lon],
-                                [salon.latitude, salon.longitude]
-                            ]} 
-                            color="#ff7e33" 
-                            dashArray="10, 10" 
-                            weight={3}
-                        />
-
-                        <div className="map-distance-badge">
-                            <Navigation size={14} color="var(--zomato-orange)" />
-                            {distance ? `${distance} km away` : 'Calculating...'}
-                        </div>
+                        <Polyline positions={[[userCoords.lat, userCoords.lon], [salon.latitude, salon.longitude]]} color="var(--primary)" weight={3} dashArray="8, 8" opacity={0.6} />
                     </MapContainer>
                 )}
             </div>
-        </div>
+        </section>
 
-        {/* 4. Queue Progress Timeline */}
-        <div>
-            <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', fontSize: '1rem', color: '#666', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '1.5rem' }}>
-               <Users size={18} /> Wait Progress
-            </h3>
-
-            <div className="timeline">
-                <div className={`timeline-item ${salon.is_active ? 'active' : ''}`}>
-                    <div className="timeline-dot">
-                        <CheckCircle2 size={18} />
-                    </div>
-                    <div className="timeline-content">
-                        <h4>Salon Opened</h4>
-                        <p>The shop is currently accepting customers.</p>
-                    </div>
-                </div>
-
-                <div className={`timeline-item ${salon.current_count > 0 ? 'active' : ''}`}>
-                    <div className="timeline-dot">
-                        <Users size={18} />
-                    </div>
-                    <div className="timeline-content">
-                        <h4>In Queue</h4>
-                        <p>{salon.current_count} people currently waiting in line.</p>
-                    </div>
-                </div>
-
-                <div className={`timeline-item ${salon.wait_time < 10 && salon.is_active ? 'active' : ''}`}>
-                    <div className="timeline-dot">
-                        <Timer size={18} />
-                    </div>
-                    <div className="timeline-content">
-                        <h4>Almost Ready</h4>
-                        <p>Estimated wait time is now {salon.wait_time} minutes.</p>
-                    </div>
-                </div>
-
-                <div className="timeline-item">
-                    <div className="timeline-dot">
-                        <Scissors size={18} />
-                    </div>
-                    <div className="timeline-content">
-                        <h4>Service Started</h4>
-                        <p>Arrive soon to skip the rush!</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        {/* Staff Section */}
+        {/* 📋 SERVICE STATIONS: Barbers */}
         {salon.barbers && salon.barbers.length > 0 && (
-            <div style={{ marginTop: '2.5rem', background: 'white', padding: '1.5rem', borderRadius: '20px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-                <h3 style={{ fontSize: '1.1rem', marginBottom: '1rem' }}>Available Barbers</h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <section className="p-10 bg-background-card border border-border-subtle rounded-[48px] shadow-premium">
+                <div className="flex items-center gap-3 mb-10">
+                   <Scissors size={24} className="text-primary" />
+                   <h3 className="text-2xl font-heading font-black uppercase tracking-tight">Active Stations</h3>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     {salon.barbers.map(b => (
-                        <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '0.8rem' }}>
-                            <div>
-                                <div style={{ fontWeight: '600' }}>{b.name}</div>
-                                <div style={{ fontSize: '0.8rem', color: '#666' }}>{b.specialty}</div>
+                        <div key={b.id} className="p-6 bg-background-main rounded-3xl border border-border-subtle flex justify-between items-center group hover:border-primary/30 transition-smooth">
+                            <div className="space-y-1">
+                                <div className="font-heading font-black text-lg group-hover:text-primary transition-colors">{b.name}</div>
+                                <div className="text-[10px] font-black text-text-dim uppercase tracking-widest">{b.specialty}</div>
                             </div>
-                            <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
-                                LIVE
+                            <div className="bg-primary/5 text-primary px-4 py-2 rounded-xl text-[10px] font-black tracking-widest flex items-center gap-2 group-hover:bg-primary group-hover:text-background-main transition-smooth">
+                                <div className="w-1.5 h-1.5 rounded-full bg-current" />
+                                STANDBY
                             </div>
                         </div>
                     ))}
                 </div>
-            </div>
+            </section>
         )}
 
-        <button 
-           onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`)}
-           className="btn btn-primary w-full mt-4" 
-           style={{ background: '#2d67b2', padding: '1.2rem', fontSize: '1rem', borderRadius: '15px' }}
-        >
-            Navigate To Salon <ChevronRight size={20} />
-        </button>
+        <div className="flex flex-col gap-4 pt-4">
+           <button 
+              onClick={() => window.open(`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`)}
+              className="w-full bg-primary text-background-main py-6 rounded-[32px] font-black text-sm uppercase tracking-[0.2em] shadow-premium hover:shadow-[0_0_30px_var(--primary-glow)] transition-smooth flex items-center justify-center gap-3"
+           >
+              Initialize Navigation <ChevronRight size={20} />
+           </button>
+           <p className="text-center text-[11px] text-text-muted font-medium uppercase tracking-widest">Always verify in-person before commitment.</p>
+        </div>
 
       </div>
     </div>

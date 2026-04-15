@@ -92,6 +92,30 @@ async def login(data: schemas.OwnerLogin):
         "saloon_id": str(salon.id) if salon else None
     }
 
+@router.get("/salon")
+async def get_owner_salon(email: str = Depends(get_owner_user)):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+
+    salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
+    if not salon:
+        raise HTTPException(status_code=404, detail="Salon not found")
+
+    return {
+        "id": str(salon.id),
+        "name": salon.name,
+        "assistant_phone": salon.assistant_phone,
+        "max_limit": salon.max_limit,
+        "latitude": salon.latitude,
+        "longitude": salon.longitude,
+        "camera_url": salon.camera_url,
+        "manual_offset": salon.manual_offset,
+        "is_active": salon.is_active,
+        "is_approved": salon.is_approved,
+        "location": salon.location,
+    }
+
 # =========================================================
 # 3️⃣ TOGGLE SHOP OPEN / CLOSE
 # =========================================================

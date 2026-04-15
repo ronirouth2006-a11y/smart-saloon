@@ -1,40 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
 :root {
-  --bg-dark: #121212;
-  --bg-card: #1e1e1e;
-  --bg-panel: #181818;
+  /* Premium Dark Theme */
+  --bg-main: #060809;
+  --bg-card: #0F1214;
+  --bg-panel: #14181B;
+  --bg-dark: #060809; /* Legacy alias */
+  
+  /* Panel Tokens (Modernized) */
+  --panel-bg: #14181B;
   --panel-border: rgba(255, 255, 255, 0.05);
-  --panel-border-hover: rgba(255, 255, 255, 0.15);
+  --panel-border-hover: rgba(255, 255, 255, 0.12);
+  
+  --border-subtle: rgba(255, 255, 255, 0.05);
+  --border-bright: rgba(255, 255, 255, 0.12);
+  
   --primary: #10B981; /* AI Emerald */
   --primary-hover: #059669;
-  --accent: #00f5ff; /* Electric Cyan */
-  --text-main: #F3F4F6; /* Crisp Off-White */
-  --text-muted: #94a3b8;
+  --primary-glow: rgba(16, 185, 129, 0.2);
+  --accent: #3B82F6; /* Professional Blue */
+  --accent-glow: rgba(59, 130, 246, 0.2);
+  
+  --text-main: #F4F7F8;
+  --text-muted: #94A3B8;
+  --text-dim: #64748B;
+
   --success: #10B981;
-  --danger: #ef4444;
-  --warning: #f59e0b;
-  --charcoal-light: #2d2d2d;
-  --charcoal-dark: #0a0a0a;
-  --font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  --danger: #EF4444;
+  --warning: #F59E0B;
+
+  /* Zomato-style Legacy UI Tokens (Modernized) */
+  --zomato-blue: #2d67b2;
+  --zomato-blue-light: #1e4b8a;
+  --zomato-orange: #ff7e33;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 32px;
+  --radius-full: 9999px;
+
+  --font-headings: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
 }
 
 body.light-mode {
-  --bg-dark: #F9FAFB; /* Soft Pearl Off-White */
-  --bg-card: #ffffff;
-  --bg-panel: rgba(255, 255, 255, 0.7);
-  --panel-border: #e5e7eb; /* border-gray-200 equivalent */
-  --panel-border-hover: #d1d5db;
-  --primary: #10B981; /* AI Emerald consistent */
-  --primary-hover: #059669;
-  --accent: #0284c7; /* Indigo-ish blue */
-  --text-main: #111827; /* Deep Slate/Charcoal */
-  --text-muted: #4b5563; /* Slate 600 */
-  --charcoal-light: #e2e8f0;
-  --charcoal-dark: #f1f5f9; 
+  --bg-main: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-panel: #F1F5F9;
+  --bg-dark: #F8FAFC;
+  
+  --panel-bg: #F1F5F9;
+  --panel-border: rgba(0, 0, 0, 0.05);
+  --panel-border-hover: rgba(0, 0, 0, 0.1);
+  
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-bright: rgba(0, 0, 0, 0.1);
+  
+  --text-main: #0F172A;
+  --text-muted: #475569;
+  --text-dim: #64748B;
+  
+  --shadow-premium: 0 10px 30px -10px rgba(0, 0, 0, 0.1);
 }
 
 * {
@@ -44,60 +77,36 @@ body.light-mode {
 }
 
 body {
-  background-color: var(--bg-dark);
+  background-color: var(--bg-main);
   color: var(--text-main);
-  font-family: var(--font-family);
-  line-height: 1.6;
-  min-height: 100vh;
-  background: radial-gradient(circle at top left, var(--bg-gradient-1), transparent 50%),
-              radial-gradient(circle at bottom right, var(--bg-gradient-2), transparent 50%),
-              var(--bg-dark);
-  background-attachment: fixed;
-  overflow-x: hidden;
-  transition: background-color 0.5s ease-in-out, color 0.5s ease-in-out;
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.leaflet-marker-icon {
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4));
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headings);
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
-/* 🟢 Heartbeat Pulse Animation */
-@keyframes mapPulse {
-  0% { transform: scale(0.5); opacity: 0.8; }
-  100% { transform: scale(3.5); opacity: 0; }
+/* Global Transition Utility */
+.transition-smooth {
+  @apply transition-all duration-300 ease-in-out;
 }
 
-.marker-pulse-container {
-  position: relative;
-  width: 25px;
-  height: 41px;
+/* 🟢 Refined Activity Pulse */
+@keyframes refinedPulse {
+  0% { transform: scale(0.95); opacity: 1; box-shadow: 0 0 0 0 var(--primary-glow); }
+  70% { transform: scale(1); opacity: 1; box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
 }
 
-.marker-pulse {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 20px;
-  height: 20px;
-  background: rgba(129, 140, 248, 0.4);
-  border-radius: 50%;
-  z-index: -1;
-  pointer-events: none;
+.pulse-primary {
+  animation: refinedPulse 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
 }
-
-.marker-pulse::after {
-  content: '';
-  position: absolute;
-  top: 0; left: 0;
-  width: 20px; height: 20px;
-  border-radius: 50%;
-  animation: mapPulse 2s infinite ease-out;
-}
-
-.pulse-green::after { background: var(--success); }
-.pulse-orange::after { background: var(--warning); }
-.pulse-red::after { background: var(--danger); animation-duration: 1.2s; }
 
 /* Animations */
 @keyframes fadeIn {

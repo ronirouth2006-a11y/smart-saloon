@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RefreshCw, Users, Clock, Navigation, Heart, Search, Filter, MapPin, ChevronRight, Star } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
@@ -102,6 +103,7 @@ const PulsingMarker = ({ salon, isHovered, onClick }) => {
 
 export default function MapView() {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const [salons, setSalons] = useState([]);
   const [loading, setLoading] = useState(true);
   const [locationError, setLocationError] = useState('');
@@ -230,45 +232,39 @@ export default function MapView() {
   }, [salons, radiusFilter, sortBy, favorites]);
 
   return (
-    <div className="bg-background min-h-screen text-text-main font-sans">
-      <div className="max-w-[1600px] mx-auto lg:px-6">
-        {/* Desktop Header: Hidden on mobile since we'll use BottomNav and Floating Search */}
-        <div className="hidden lg:flex items-center justify-between py-6 animate-fade-in">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-electric-green/10 rounded-2xl border border-electric-green/20">
-              <Navigation size={28} className="text-electric-green" />
-            </div>
-            <div>
-              <h2 className="text-2xl font-black tracking-tight m-0">{t('nearby_salons')}</h2>
-              <p className="text-sm text-text-muted m-0">Discover live wait times at premium salons near you.</p>
-            </div>
-          </div>
-        </div>
-
-        {/* 🗺️ MAP ENGINE: 100% Height on Mobile, Fixed Sidebar on Desktop */}
-        <div className="relative flex flex-col lg:flex-row gap-6 h-[calc(100vh-20px)] lg:h-[calc(100vh-140px)] overflow-hidden">
+    <div className="bg-background-main min-h-screen text-text-main font-sans selection:bg-primary/20">
+      <div className="max-w-[1700px] mx-auto lg:px-10">
+        
+        {/* 🗺️ MAP ENGINE: Hybrid Layout */}
+        <div className="relative flex flex-col lg:flex-row gap-8 h-[calc(100vh-20px)] lg:h-[calc(100vh-160px)] overflow-hidden lg:rounded-4xl border border-border-subtle lg:shadow-premium lg:mt-6">
           
-          {/* MOBILE SEARCH FAB (Floating Action Button) */}
-          <div className="absolute top-6 left-1/2 -translate-x-1/2 z-[1500] w-[90%] lg:hidden flex gap-2">
+          {/* FLOATING ACTION OVERLAY (Search & Controls) */}
+          <div className="absolute top-8 left-1/2 -translate-x-1/2 z-[1000] w-[92%] lg:w-[480px] lg:left-10 lg:translate-x-0 flex gap-3">
             <div className="relative flex-1 group">
-               <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-muted group-focus-within:text-electric-cyan transition-colors" />
+               <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth" />
                <input 
-                 className="w-full bg-background-panel/90 backdrop-blur-xl border border-white/10 rounded-2xl py-3 pl-12 pr-4 shadow-2xl focus:outline-none focus:border-electric-cyan/50 transition-all text-sm" 
-                 placeholder="Search salons..." 
+                 className="w-full bg-background-card/90 backdrop-blur-2xl border border-border-bright rounded-[20px] py-4 pl-14 pr-6 shadow-premium focus:outline-none focus:border-primary/50 transition-smooth text-sm font-medium" 
+                 placeholder="Search salons or locations..." 
                  value={searchTerm}
                  onChange={e => setSearchTerm(e.target.value)}
                />
+               <button 
+                  onClick={() => setIsFilterOpen(!isFilterOpen)}
+                  className={`absolute right-4 top-1/2 -translate-y-1/2 p-2 rounded-lg transition-smooth ${isFilterOpen ? 'text-primary bg-primary/10' : 'text-text-dim hover:text-text-main'}`}
+               >
+                  <Filter size={18} />
+               </button>
             </div>
             <button 
                onClick={locateAndFetch}
-               className="p-3 bg-electric-green shadow-2xl rounded-2xl text-white active:scale-95 transition-transform"
+               className="p-4 bg-primary shadow-premium rounded-[20px] text-background-main hover:scale-105 active:scale-95 transition-smooth"
             >
-               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+               <RefreshCw size={22} className={loading ? 'animate-spin' : ''} />
             </button>
           </div>
 
-          {/* LEFT AREA: MAP */}
-          <div className="w-full h-full lg:flex-[1.5] relative rounded-3xl overflow-hidden shadow-2xl border border-white/5 order-1 lg:order-none">
+          {/* LEFT AREA: FULL SCREEN MAP */}
+          <div className="w-full h-full relative order-1 lg:order-none overflow-hidden">
             <MapContainer 
               center={[coords.lat, coords.lon]} 
               zoom={15} 
@@ -287,40 +283,36 @@ export default function MapView() {
             </MapContainer>
           </div>
 
-          {/* RIGHT AREA: RESULTS SIDEBAR (Desktop) / BOTTOM SHEET (Mobile) */}
-          <div className={`
-            absolute lg:relative bottom-0 left-0 right-0 z-[1600] lg:z-0
-            lg:w-[450px] lg:h-full lg:flex-col lg:gap-4 lg:flex
-            bg-background-panel lg:bg-transparent backdrop-blur-3xl lg:backdrop-blur-none
-            rounded-t-[40px] lg:rounded-none border-t border-white/10 lg:border-none
-            transition-all duration-500 ease-in-out
-            ${processedSalons.length > 0 ? 'h-[40vh]' : 'h-[100px]'}
-            overflow-y-auto lg:overflow-y-visible
+          {/* RIGHT AREA: THE DISCOVERY SIDEPANEL */}
+          <aside className={`
+            absolute lg:relative bottom-0 left-0 right-0 z-[1100] lg:z-0
+            lg:w-[480px] lg:h-full lg:flex-col lg:flex
+            bg-background-card lg:bg-background-panel/40 backdrop-blur-3xl lg:backdrop-blur-none
+            rounded-t-4xl lg:rounded-none border-t lg:border-t-0 lg:border-l border-border-subtle
+            transition-all duration-500 ease-[0.16, 1, 0.3, 1]
+            ${processedSalons.length > 0 ? 'h-[50vh] lg:h-full' : 'h-[100px] lg:h-full'}
+            overflow-hidden
           `}>
              {/* Mobile Grab Handle */}
-             <div className="w-12 h-1.5 bg-white/20 rounded-full mx-auto my-4 lg:hidden"></div>
+             <div className="w-16 h-1.5 bg-border-subtle rounded-full mx-auto my-5 lg:hidden opacity-50"></div>
 
-            {/* Side Scrollable List */}
-            <div className="flex flex-col gap-4 px-6 lg:px-0 lg:overflow-y-auto lg:pr-2 scrollbar-hide pb-24 lg:pb-0">
-               {/* Desktop Filter Row */}
-               <div className="hidden lg:flex items-center gap-2 mb-2">
-                 <button 
-                   onClick={() => setRadiusFilter(!radiusFilter)}
-                   className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${radiusFilter ? 'bg-electric-green border-electric-green text-black' : 'bg-background-card border-white/10 text-text-muted hover:border-white/30'}`}
-                 >
-                   NEARBY (10KM)
-                 </button>
-                 <button 
-                    onClick={() => setSortBy(sortBy === 'wait' ? 'distance' : 'wait')}
-                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all border ${sortBy === 'wait' ? 'bg-electric-cyan border-electric-cyan text-black' : 'bg-background-card border-white/10 text-text-muted hover:border-white/30'}`}
-                 >
-                    LOWEST WAIT
-                 </button>
-               </div>
+             {/* Header Info (Desktop) */}
+             <div className="hidden lg:flex px-8 pt-8 pb-4 flex-col gap-1">
+                <h2 className="text-2xl font-heading font-black tracking-tight">{t('nearby_salons')}</h2>
+                <p className="text-xs font-bold text-text-dim uppercase tracking-widest">{processedSalons.length} Nodes Identified</p>
+             </div>
 
+             {/* Dynamic Filter Row */}
+             <div className="flex items-center gap-3 px-8 mb-6 overflow-x-auto no-scrollbar">
+                <FilterChip active={radiusFilter} onClick={() => setRadiusFilter(!radiusFilter)} label="WITHIN 10KM" />
+                <FilterChip active={sortBy === 'wait'} onClick={() => setSortBy(sortBy === 'wait' ? 'distance' : 'wait')} label="SHORTEST QUEUE" />
+             </div>
+
+            {/* Results Grid */}
+            <div className="flex-1 overflow-y-auto px-8 pb-32 lg:pb-12 space-y-5 custom-scrollbar">
                <AnimatePresence mode="popLayout">
                  {loading ? (
-                   [1,2,3].map(i => <SkeletonCard key={i} />)
+                   [1,2,3,4].map(i => <div key={i} className="h-40 bg-white/5 animate-pulse rounded-3xl" />)
                  ) : processedSalons.map((salon, index) => {
                    const isFavorite = favorites.includes(salon.id);
                    const isHovered = hoveredSalonId === salon.id;
@@ -328,70 +320,63 @@ export default function MapView() {
                    return (
                      <motion.div
                        key={salon.id}
-                       initial={{ opacity: 0, y: 30 }}
-                       animate={{ opacity: 1, y: 0 }}
-                       transition={{ delay: index * 0.05, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                       layout
-                       whileHover={{ scale: 1.02, boxShadow: '0px 10px 30px rgba(0,245,255,0.15)' }}
-                       className={`
-                         group p-5 rounded-[24px] cursor-pointer transition-all relative overflow-hidden
-                         ${isHovered ? 'bg-white/5 border-electric-green/40 shadow-[0_0_30px_rgba(46,204,113,0.1)]' : 'bg-background-card/50 border-white/5'}
-                         border backdrop-blur-md
-                       `}
+                       initial={{ opacity: 0, x: 20 }}
+                       animate={{ opacity: 1, x: 0 }}
+                       transition={{ delay: index * 0.04, duration: 0.5, ease: 'easeOut' }}
+                       onClick={() => navigate(`/salons/${salon.id}`)}
                        onMouseEnter={() => setHoveredSalonId(salon.id)}
                        onMouseLeave={() => setHoveredSalonId(null)}
+                       className={`
+                         group p-6 rounded-[32px] cursor-pointer transition-smooth border relative overflow-hidden
+                         ${isHovered ? 'bg-white/5 border-primary/40 shadow-premium' : 'bg-background-panel/40 border-border-subtle'}
+                       `}
                      >
-                       <div className="flex justify-between items-start mb-4">
-                         <div className="flex-1">
-                           <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-black text-lg m-0 group-hover:text-electric-green transition-colors">{salon.name}</h3>
-                              {isFavorite && <Heart size={14} fill="#ef4444" color="#ef4444" />}
+                       <div className="flex justify-between items-start gap-4 mb-6">
+                         <div className="flex-1 min-w-0">
+                           <div className="flex items-center gap-2 mb-1.5">
+                              <h3 className="font-heading font-black text-xl truncate group-hover:text-primary transition-colors">{salon.name}</h3>
+                              {isFavorite && <Star size={16} fill="var(--warning)" color="var(--warning)" />}
                            </div>
-                           <p className="text-xs text-text-muted flex items-center gap-1">
-                             <MapPin size={12} className="text-electric-cyan" /> {salon.location}
+                           <p className="text-xs text-text-muted font-medium flex items-center gap-1.5">
+                             <MapPin size={14} className="text-accent" /> {salon.location || 'Haldia, WB'}
                            </p>
                          </div>
                          <div className={`
-                           px-3 py-1 rounded-full text-[10px] font-black tracking-widest flex items-center gap-1.5 border
-                           ${salon.status === 'AVAILABLE' ? 'bg-electric-green/10 text-electric-green border-electric-green/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}
+                           px-3.5 py-1.5 rounded-full text-[10px] font-black tracking-widest flex items-center gap-2 border transition-smooth
+                           ${salon.status === 'AVAILABLE' ? 'bg-primary/10 text-primary border-primary/20' : 'bg-danger/10 text-danger border-danger/20'}
                          `}>
-                           <div className={`w-1.5 h-1.5 rounded-full ${salon.status === 'AVAILABLE' ? 'bg-electric-green animate-pulse' : 'bg-red-500'}`} />
+                           <div className={`w-1.5 h-1.5 rounded-full ${salon.status === 'AVAILABLE' ? 'bg-primary pulse-primary' : 'bg-danger'}`} />
                            {salon.status}
                          </div>
                        </div>
 
-                       <div className="grid grid-cols-2 gap-3">
-                         <div className="bg-black/20 p-3 rounded-2xl border border-white/5 flex flex-col justify-center">
-                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">EST. WAIT</span>
-                            <div className="flex items-baseline gap-1">
-                               <span className="text-xl font-black text-electric-green">
-                                  { (salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? '--' : salon.wait_time }
-                               </span>
-                               <span className="text-xs font-bold text-text-muted">MIN</span>
-                            </div>
-                         </div>
-                         <div className="bg-black/20 p-3 rounded-2xl border border-white/5 flex flex-col justify-center">
-                            <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider mb-0.5">DISTANCE</span>
-                            <div className="flex items-baseline gap-1">
-                               <span className="text-xl font-black text-electric-cyan">{salon.distance.toFixed(1)}</span>
-                               <span className="text-xs font-bold text-text-muted">KM</span>
-                            </div>
-                         </div>
+                       <div className="grid grid-cols-2 gap-4">
+                         <StatBadge 
+                           label="EST. WAIT" 
+                           value={(salon.status === 'OFFLINE' || salon.status === 'NO LIVE FEED') ? '--' : salon.wait_time} 
+                           unit="MIN" 
+                           color="text-primary"
+                         />
+                         <StatBadge 
+                           label="DISTANCE" 
+                           value={salon.distance !== undefined ? salon.distance.toFixed(1) : '0.0'} 
+                           unit="KM" 
+                           color="text-accent"
+                         />
                        </div>
 
-                       <div className="flex gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity translate-y-2 group-hover:translate-y-0 duration-300">
-                          <a 
-                            href={`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`}
-                            target="_blank" rel="noreferrer"
-                            className="bg-electric-cyan/20 hover:bg-electric-cyan text-electric-cyan hover:text-black font-black text-xs py-3 rounded-xl transition-all flex-[2] text-center"
+                       <div className="flex gap-2 mt-6 opacity-0 group-hover:opacity-100 translate-y-2 group-hover:translate-y-0 transition-smooth duration-300">
+                          <button 
+                            className="flex-1 bg-white/5 hover:bg-white/10 text-text-main font-bold text-[10px] py-4 rounded-2xl transition-smooth flex justify-center items-center gap-2"
+                            onClick={(e) => { e.stopPropagation(); window.open(`https://www.google.com/maps/dir/?api=1&destination=${salon.latitude},${salon.longitude}`); }}
                           >
-                            GET DIRECTIONS
-                          </a>
+                            DIRECTIONS
+                          </button>
                           <button 
                             onClick={(e) => { e.stopPropagation(); toggleFavorite(salon.id); }}
-                            className="bg-white/5 hover:bg-red-500/20 text-white hover:text-red-400 p-3 rounded-xl border border-white/10 transition-all flex-[0.5] flex items-center justify-center"
+                            className="w-14 h-14 bg-white/5 hover:bg-danger/10 text-text-muted hover:text-danger rounded-2xl border border-border-subtle transition-smooth flex items-center justify-center shrink-0"
                           >
-                             <Heart size={18} fill={isFavorite ? "#ef4444" : "transparent"} color={isFavorite ? "#ef4444" : "currentColor"} />
+                             <Heart size={20} fill={isFavorite ? "var(--danger)" : "transparent"} color={isFavorite ? "var(--danger)" : "currentColor"} />
                           </button>
                        </div>
                      </motion.div>
@@ -399,9 +384,28 @@ export default function MapView() {
                  })}
                </AnimatePresence>
             </div>
-          </div>
+          </aside>
         </div>
       </div>
     </div>
   );
 }
+
+const FilterChip = ({ active, label, onClick }) => (
+  <button 
+    onClick={onClick}
+    className={`px-6 py-2.5 rounded-full text-[10px] font-black tracking-[0.15em] transition-smooth border whitespace-nowrap ${active ? 'bg-primary border-primary text-background-main shadow-premium' : 'bg-background-panel border-border-subtle text-text-dim hover:border-text-muted hover:text-text-main'}`}
+  >
+    {label}
+  </button>
+);
+
+const StatBadge = ({ label, value, unit, color }) => (
+  <div className="bg-background-main/50 p-4 rounded-2xl border border-border-subtle flex flex-col justify-center transition-smooth group-hover:bg-background-main">
+     <span className="text-[10px] font-bold text-text-dim uppercase tracking-[0.1em] mb-1">{label}</span>
+     <div className="flex items-baseline gap-1.5">
+        <span className={`text-2xl font-black ${color}`}>{value}</span>
+        <span className="text-[10px] font-black text-text-muted">{unit}</span>
+     </div>
+  </div>
+);

@@ -8,29 +8,35 @@ export default {
     extend: {
       colors: {
         background: {
-          DEFAULT: 'var(--bg-dark)',
+          main: 'var(--bg-main)',
           card: 'var(--bg-card)',
           panel: 'var(--bg-panel)',
         },
         text: {
           main: 'var(--text-main)',
           muted: 'var(--text-muted)',
+          dim: 'var(--text-dim)',
         },
-        electric: {
-          green: 'var(--primary)',
-          cyan: 'var(--accent)',
-          neon: '#0aef73',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          glow: 'var(--primary-glow)',
         },
-        charcoal: {
-          light: '#2d2d2d',
-          dark: '#0a0a0a',
+        accent: 'var(--accent)',
+        border: {
+          subtle: 'var(--border-subtle)',
+          bright: 'var(--border-bright)',
         }
       },
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Inter', 'system-ui', 'sans-serif'],
+        heading: ['Outfit', 'sans-serif'],
       },
-      backdropBlur: {
-        xs: '2px',
+      borderRadius: {
+        '3xl': '24px',
+        '4xl': '32px',
+      },
+      boxShadow: {
+        premium: 'var(--shadow-premium)',
       }
     },
   },

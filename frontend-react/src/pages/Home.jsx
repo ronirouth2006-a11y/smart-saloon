@@ -43,143 +43,159 @@ export default function Home() {
   };
 
   return (
-    <div className="bg-background min-h-screen text-text-main overflow-x-hidden">
+    <div className="bg-background-main min-h-screen text-text-main overflow-x-hidden selection:bg-primary/20">
       
-      {/* 🚀 HERO SECTION: High-Fidelity Professional Layout */}
-      <section className="relative px-6 pt-24 pb-12 lg:pt-32 lg:pb-24 max-w-[1400px] mx-auto text-center">
-        {/* Abstract Background Glows */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-electric-green/5 blur-[120px] rounded-full -z-10" />
-        <div className="absolute top-20 right-0 w-[300px] h-[300px] bg-electric-cyan/5 blur-[100px] rounded-full -z-10" />
-
+      {/* 🚀 HERO SECTION: Flagship Startup Identity */}
+      <section className="relative px-6 pt-32 pb-20 lg:pt-48 lg:pb-32 max-w-[1400px] mx-auto text-center">
+        {/* Subtle Ambient Glows (Reduced Intensity) */}
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 w-[1000px] h-[500px] bg-primary/5 blur-[150px] rounded-full -z-10" />
+        
         <motion.div 
           variants={containerVariants}
           initial="hidden"
           animate="visible"
-          className="space-y-8"
+          className="space-y-10"
         >
-          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-background-panel/30 border border-panel-border text-electric-cyan text-xs font-black tracking-[0.2em] uppercase mb-4">
-             <Activity size={14} className="animate-pulse" /> Live in West Bengal
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full bg-white/5 border border-border-subtle text-accent text-[10px] font-black tracking-[0.2em] uppercase mb-4 backdrop-blur-md">
+             <div className="w-2 h-2 rounded-full bg-primary pulse-primary" /> 
+             Live Network • West Bengal
           </motion.div>
 
           <motion.h1 
             variants={textVariants}
-            className="text-5xl lg:text-8xl font-black tracking-tighter leading-[0.9] m-0"
+            className="text-6xl lg:text-9xl font-heading font-black tracking-tight leading-[0.85] m-0"
           >
-            {t('future_queueing')} <br/>
-            <span className="text-electric-green inline-block mt-2">WAIT-LESSLY.</span>
+            THE FUTURE<br/>
+            OF <span className="text-primary italic">FLOW.</span>
           </motion.h1>
           
           <motion.p 
             variants={itemVariants}
-            className="text-lg lg:text-xl text-text-muted max-w-2xl mx-auto leading-relaxed font-medium"
+            className="text-lg lg:text-2xl text-text-muted max-w-3xl mx-auto leading-relaxed font-medium"
           >
-            {t('hero_desc')}
+            Eliminate the wait. Discover premium salons, monitor live crowd telemetry, and arrive exactly when your chair is ready.
           </motion.p>
 
           <motion.div 
             variants={itemVariants}
-            className="flex flex-col sm:flex-row gap-4 justify-center items-center pt-8"
+            className="flex flex-col sm:flex-row gap-6 justify-center items-center pt-10"
           >
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Link to="/map" className="group relative bg-electric-green text-white px-10 py-5 rounded-2xl font-black text-lg no-underline transition-all shadow-sm flex items-center gap-3">
-                <MapPin size={24} /> {t('find_salon_btn')}
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Link to="/map" className="group relative bg-primary text-background-main px-12 py-6 rounded-3xl font-black text-xl no-underline transition-smooth shadow-premium flex items-center gap-3">
+                <MapPin size={24} /> Locate Salon
               </Link>
             </motion.div>
-            <Link to="/map" className="group flex items-center gap-3 bg-background-panel/50 border border-panel-border text-text-main px-10 py-5 rounded-2xl font-black text-lg no-underline hover:bg-background-panel/80 transition-all shadow-sm">
-              {t('open_map_btn')} <ChevronRight size={20} className="group-hover:translate-x-1 transition-transform" />
+            <Link to="/map" className="group flex items-center gap-3 bg-white/5 border border-border-subtle text-text-main px-12 py-6 rounded-3xl font-black text-xl no-underline hover:bg-white/10 transition-smooth">
+              Open Intelligence <ChevronRight size={22} className="group-hover:translate-x-1 transition-transform" />
             </Link>
           </motion.div>
 
           {deferredPrompt && (
-            <motion.div variants={itemVariants} className="pt-4">
+            <motion.div variants={itemVariants} className="pt-6">
               <button 
                 onClick={handleInstallClick}
-                className="inline-flex items-center gap-2 text-text-muted hover:text-electric-cyan transition-colors text-sm font-bold bg-transparent border-none cursor-pointer"
+                className="inline-flex items-center gap-2 text-text-dim hover:text-primary transition-smooth text-xs font-bold uppercase tracking-widest bg-transparent border-none cursor-pointer"
               >
-                <Download size={18} /> {t('install_app')}
+                <Download size={18} /> Install Application
               </button>
             </motion.div>
           )}
         </motion.div>
       </section>
 
-      {/* 🔮 THE AI PROCESS: Animated Connectivity */}
-      <section className="bg-background-panel/40 border-y border-panel-border py-12 mb-20">
-        <div className="max-w-[1000px] mx-auto px-6 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-0">
-          <div className="flex flex-col items-center gap-3 group">
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
-              <Camera size={28} className="text-text-muted group-hover:text-electric-cyan" />
-            </motion.div>
-            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">Camera Tracks</span>
-          </div>
-          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
-          <div className="flex flex-col items-center gap-3 group">
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, delay: 0.5, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-green transition-all">
-              <BrainCircuit size={28} className="text-text-muted group-hover:text-electric-green" />
-            </motion.div>
-            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">AI Processes</span>
-          </div>
-          <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-panel-border to-transparent mx-8" />
-          <div className="flex flex-col items-center gap-3 group">
-            <motion.div animate={{ y: [0, -10, 0] }} transition={{ duration: 3, delay: 1, repeat: Infinity, ease: 'easeInOut' }} className="p-4 bg-background-panel/50 rounded-2xl border border-panel-border group-hover:border-electric-cyan transition-all">
-              <Smartphone size={28} className="text-text-muted group-hover:text-electric-cyan" />
-            </motion.div>
-            <span className="text-[10px] uppercase font-black tracking-widest text-text-muted">You See Live</span>
-          </div>
+      {/* 🔮 THE AI PIPELINE: Industrial Visual Story */}
+      <section className="bg-background-card border-y border-border-subtle py-16 mb-24">
+        <div className="max-w-[1200px] mx-auto px-10 flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-0">
+          <ProcessStep icon={<Camera size={32} />} label="Vision Capture" delay={0} />
+          <Connector />
+          <ProcessStep icon={<BrainCircuit size={32} />} label="AI Analysis" delay={0.5} color="text-primary" />
+          <Connector />
+          <ProcessStep icon={<Smartphone size={32} />} label="Real-time Feed" delay={1} />
         </div>
       </section>
 
-      {/* 💎 FEATURES: Modern Grid with Glassmorphism */}
-      <section className="max-w-[1400px] mx-auto px-6 pb-24">
+      {/* 💎 CORE ENGINE: Modern Product Grid */}
+      <section className="max-w-[1400px] mx-auto px-10 pb-32">
+        <div className="mb-20 text-center space-y-4">
+           <h2 className="text-4xl lg:text-6xl font-heading font-black tracking-tight uppercase">Operational <span className="text-primary italic">Edge.</span></h2>
+           <p className="text-text-muted text-lg font-medium">Precision tools for the modern salon ecosystem.</p>
+        </div>
+
         <motion.div 
           initial="hidden"
           whileInView="visible"
-          viewport={{ once: true }}
+          viewport={{ once: true, margin: "-100px" }}
           variants={containerVariants}
-          className="grid grid-cols-1 md:grid-cols-3 gap-8"
+          className="grid grid-cols-1 md:grid-cols-3 gap-10"
         >
           <FeatureCard 
             variants={itemVariants}
-            icon={<MapPin size={40} className="text-electric-cyan" />}
-            title={t('location_based')}
-            desc={t('location_desc')}
+            icon={<MapPin size={32} className="text-accent" />}
+            title="Discovery Intelligence"
+            desc="Hyper-local salon discovery backed by actual wait-time metrics, not just distance."
           />
           <FeatureCard 
             variants={itemVariants}
-            icon={<Activity size={40} className="text-electric-green" />}
-            title={t('realtime_tracking')}
-            desc={t('realtime_desc')}
+            icon={<Activity size={32} className="text-primary" />}
+            title="Queue Telemetry"
+            desc="Live headcount tracking using distributed AI vision to guarantee queue accuracy."
           />
           <FeatureCard 
             variants={itemVariants}
-            icon={<Sparkles size={40} className="text-electric-cyan" />}
-            title={t('smart_predictions')}
-            desc={t('smart_desc')}
+            icon={<Sparkles size={32} className="text-accent" />}
+            title="Smart Forecasting"
+            desc="Predictive wait-times that learn from daily footfall patterns and staff availability."
           />
         </motion.div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="py-12 border-t border-white/5 text-center px-6">
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <Scissors size={20} className="text-electric-green" />
-          <span className="font-black tracking-tighter uppercase text-white">{t('app_name')}</span>
+      {/* FOOTER: Minimalist Branded */}
+      <footer className="py-20 border-t border-border-subtle bg-background-card/50">
+        <div className="max-w-[1400px] mx-auto px-10 flex flex-col md:flex-row justify-between items-center gap-10">
+           <div className="flex items-center gap-3">
+             <Scissors size={24} className="text-primary" />
+             <span className="text-xl font-heading font-black tracking-tighter uppercase text-white">Smart Saloon</span>
+           </div>
+           
+           <div className="flex gap-10 text-[10px] font-black uppercase tracking-[0.25em] text-text-dim">
+              <Link to="/map" className="hover:text-primary transition-smooth">Network</Link>
+              <Link to="/register" className="hover:text-primary transition-smooth">Onboard</Link>
+              <Link to="/owner/login" className="hover:text-primary transition-smooth">HQ Access</Link>
+           </div>
+
+           <p className="text-text-dim text-[10px] font-bold tracking-[0.2em] uppercase">© 2026 Smart Saloon • Built for the Future</p>
         </div>
-        <p className="text-text-muted text-xs font-bold tracking-widest uppercase">© 2026 Smart Saloon. Made with Precision.</p>
       </footer>
     </div>
   );
 }
 
+const ProcessStep = ({ icon, label, delay, color = "text-text-muted" }) => (
+  <div className="flex flex-col items-center gap-5 group">
+    <motion.div 
+      animate={{ y: [0, -12, 0] }} 
+      transition={{ duration: 4, delay, repeat: Infinity, ease: 'easeInOut' }} 
+      className="p-6 bg-background-main rounded-3xl border border-border-subtle group-hover:border-primary/40 transition-smooth shadow-premium"
+    >
+      <div className={`${color} group-hover:text-primary transition-colors`}>{icon}</div>
+    </motion.div>
+    <span className="text-[11px] uppercase font-black tracking-[0.2em] text-text-muted group-hover:text-text-main transition-colors">{label}</span>
+  </div>
+);
+
+const Connector = () => (
+  <div className="hidden lg:block h-[1px] flex-1 bg-gradient-to-r from-transparent via-border-subtle to-transparent mx-12" />
+);
+
 const FeatureCard = ({ icon, title, desc, variants }) => (
   <motion.div 
     variants={variants}
-    className="group p-10 bg-background-card/50 border border-panel-border rounded-[40px] hover:bg-background-panel/40 transition-all duration-500 backdrop-blur-3xl"
+    className="group p-12 bg-background-card border border-border-subtle rounded-[48px] hover:border-primary/20 transition-smooth shadow-premium hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)]"
   >
-    <div className="mb-6 p-4 bg-background-panel inline-block rounded-2xl group-hover:scale-110 transition-transform shadow-sm">
+    <div className="mb-8 p-5 bg-background-main inline-block rounded-2xl group-hover:scale-110 transition-smooth border border-border-subtle group-hover:border-primary/30">
       {icon}
     </div>
-    <h3 className="text-2xl font-black mb-4 flex items-center gap-2">{title}</h3>
-    <p className="text-text-muted leading-relaxed font-medium">{desc}</p>
+    <h3 className="text-3xl font-heading font-black mb-5 tracking-tight">{title}</h3>
+    <p className="text-text-muted text-base leading-relaxed font-medium group-hover:text-text-main transition-colors">{desc}</p>
   </motion.div>
 );

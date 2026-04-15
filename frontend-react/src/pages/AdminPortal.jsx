@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Shield, CheckCircle, XCircle, Clock, ExternalLink, Activity, 
-  MapPin, LogOut, LayoutDashboard, Radio, Eye, FileText, Lock 
+  MapPin, LogOut, LayoutDashboard, Radio, Eye, FileText, Lock,
+  ChevronRight, ShieldAlert, Zap, Search, Bell, Filter, MoreHorizontal,
+  ArrowUpRight, Building2, UserCheck, ShieldCheck, RefreshCw
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import api from '../api';
@@ -9,23 +11,18 @@ import api from '../api';
 export default function AdminPortal() {
   const [adminToken, setAdminToken] = useState(localStorage.getItem('adminToken') || '');
   const [activeTab, setActiveTab] = useState('dashboard');
-  
-  // Data State
   const [pendingSalons, setPendingSalons] = useState([]);
   const [approvedSalons, setApprovedSalons] = useState([]);
   const [heartbeats, setHeartbeats] = useState([]);
-  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [selectedPending, setSelectedPending] = useState(null);
 
-  // Login State
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loginLoading, setLoginLoading] = useState(false);
   const [loginError, setLoginError] = useState('');
 
-  // 🛡️ Login Handler
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -48,7 +45,6 @@ export default function AdminPortal() {
     setActiveTab('dashboard');
   };
 
-  // 📡 Data Fetchers
   const config = { headers: { Authorization: `Bearer ${adminToken}` } };
   
   const fetchAllData = async () => {
@@ -65,11 +61,8 @@ export default function AdminPortal() {
       setApprovedSalons(approvedRes.data);
       setHeartbeats(pulsesRes.data);
     } catch (err) {
-      if (err.response?.status === 401) {
-        logout(); // Token expired
-      } else {
-        setError('Failed to sync control center data.');
-      }
+      if (err.response?.status === 401) logout();
+      else setError('Failed to sync control center data.');
     } finally {
       setLoading(false);
     }
@@ -78,20 +71,17 @@ export default function AdminPortal() {
   useEffect(() => {
     if (adminToken) {
       fetchAllData();
-      const interval = setInterval(fetchAllData, 60000); // refresh every minute for pulses
+      const interval = setInterval(fetchAllData, 60000);
       return () => clearInterval(interval);
     }
   }, [adminToken]);
 
-  // Actions
   const handleApprove = async (id) => {
     try {
       await api.put(`/admin/api/v1/salons/${id}/approve`, {}, config);
       setSelectedPending(null);
       fetchAllData();
-    } catch (err) {
-      setError('Approval Action Failed');
-    }
+    } catch (err) { setError('Approval Action Failed'); }
   };
 
   const handleReject = async (id) => {
@@ -100,55 +90,44 @@ export default function AdminPortal() {
       await api.delete(`/admin/api/v1/salons/${id}/reject`, config);
       setSelectedPending(null);
       fetchAllData();
-    } catch (err) {
-      setError('Rejection Action Failed');
-    }
+    } catch (err) { setError('Rejection Action Failed'); }
   };
 
-  // 🎨 Derived State & Render Helpers
   const getPulseStatus = (lastPulseStr) => {
-    if (!lastPulseStr) return { label: 'OFFLINE', color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' };
+    if (!lastPulseStr) return { label: 'DARK', color: 'text-danger', bg: 'bg-danger/5 border-danger/10' };
     const pulseDate = new Date(lastPulseStr);
     const diffMins = (new Date() - pulseDate) / 1000 / 60;
-    
-    if (diffMins > 30) return { label: 'OFFLINE (>30m)', color: 'text-red-500', bg: 'bg-red-500/10 border-red-500/20' };
-    if (diffMins > 10) return { label: 'WARNING (>10m)', color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/20' };
-    return { label: 'ONLINE', color: 'text-electric-green', bg: 'bg-electric-green/10 border-electric-green/20' };
+    if (diffMins > 30) return { label: 'DARK', color: 'text-danger', bg: 'bg-danger/5 border-danger/10' };
+    if (diffMins > 10) return { label: 'DORMANT', color: 'text-accent', bg: 'bg-accent/5 border-accent/10' };
+    return { label: 'SYNCED', color: 'text-primary', bg: 'bg-primary/5 border-primary/10' };
   };
 
-  // ------------------------------------------
-  // RENDER: LOGIN SCREEN
-  // ------------------------------------------
   if (!adminToken) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-6 relative overflow-hidden">
-        {/* Sub-system grid overlay */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:40px_40px] opacity-20 pointer-events-none"></div>
-        
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="w-full max-w-md relative z-10">
-          <div className="bg-background-panel border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden">
-             {/* Security strip */}
-             <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-red-500 via-orange-500 to-electric-cyan"></div>
-             
-             <div className="flex flex-col items-center mb-8">
-               <Shield size={48} className="text-electric-cyan mb-4 drop-shadow-[0_0_15px_rgba(0,245,255,0.5)]" />
-               <h2 className="text-2xl font-black uppercase tracking-widest text-white m-0">Internal Portal</h2>
-               <p className="text-xs text-text-muted mt-2 tracking-widest font-mono">AUTHORIZED PERSONNEL ONLY</p>
+      <div className="min-h-screen bg-background-main flex items-center justify-center p-10 selection:bg-primary/20">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(16,185,129,0.05)_0%,transparent_50%)]" />
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-[480px] relative z-10">
+          <div className="bg-background-card border border-border-subtle rounded-[48px] p-12 shadow-premium backdrop-blur-3xl relative overflow-hidden">
+             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-primary via-accent to-primary animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.3)]" />
+             <div className="text-center mb-12">
+               <div className="inline-flex p-5 bg-primary/10 rounded-[32px] border border-primary/20 mb-6 group transition-smooth hover:scale-105">
+                 <Shield size={48} className="text-primary group-hover:rotate-12 transition-transform" />
+               </div>
+               <h1 className="text-3xl font-heading font-black uppercase tracking-tighter leading-none mb-3">Institutional <span className="text-primary italic">Access</span></h1>
+               <p className="text-[10px] text-text-dim font-black uppercase tracking-[0.3em]">Authorized High-Level Personnel Only</p>
              </div>
-
-             {loginError && <p className="text-red-400 text-xs text-center mb-4 font-mono uppercase bg-red-400/10 py-2 rounded border border-red-400/20">{loginError}</p>}
-
-             <form onSubmit={handleLogin} className="space-y-4">
-               <div>
-                  <label className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 block">Admin Key (Email)</label>
-                  <input type="email" required value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-electric-cyan outline-none transition-colors" />
+             {loginError && (
+               <div className="mb-8 p-4 bg-danger/10 border border-danger/20 rounded-2xl flex items-center gap-3 text-danger text-[11px] font-black uppercase tracking-widest">
+                  <ShieldAlert size={18} /> {loginError}
                </div>
-               <div>
-                  <label className="text-xs font-bold text-text-muted uppercase tracking-wider mb-2 block">Passphrase</label>
-                  <input type="password" required value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white focus:border-electric-cyan outline-none transition-colors" />
+             )}
+             <form onSubmit={handleLogin} className="space-y-8">
+               <div className="space-y-6">
+                 <AuthInput label="IDENTITY KEY" type="email" value={email} onChange={setEmail} icon={<UserCheck size={18}/>} placeholder="root@smartsaloons.ai" />
+                 <AuthInput label="SECURITY PHRASE" type="password" value={password} onChange={setPassword} icon={<Lock size={18}/>} placeholder="••••••••" />
                </div>
-               <button disabled={loginLoading} type="submit" className="w-full bg-white text-black font-black uppercase tracking-widest py-4 rounded-xl mt-4 hover:bg-electric-cyan hover:shadow-[0_0_20px_rgba(0,245,255,0.4)] transition-all">
-                  {loginLoading ? 'Authenticating...' : 'Establish Secure Link'}
+               <button disabled={loginLoading} type="submit" className="w-full bg-primary text-background-main font-black uppercase tracking-[0.25em] text-xs py-6 rounded-[32px] hover:shadow-[0_0_20px_var(--primary-glow)] transition-smooth active:scale-95 disabled:opacity-50">
+                  {loginLoading ? 'VERIFYING...' : 'ESTABLISH LINK'}
                </button>
              </form>
           </div>
@@ -157,230 +136,293 @@ export default function AdminPortal() {
     );
   }
 
-  // ------------------------------------------
-  // RENDER: DASHBOARD COMPONENTS
-  // ------------------------------------------
-
-  // SUB-RENDER: Dashboard Overview
-  const renderOverview = () => (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <motion.div 
-           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(46,204,113,0)', '0px 10px 20px rgba(46,204,113,0.15)', '0px 0px 0px rgba(46,204,113,0)'] }}
-           transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-green/30 transition-colors"
-        >
-           <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Activity size={120} /></div>
-           <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Total Active Salons</p>
-           <h3 className="text-5xl font-black text-white">{approvedSalons.length}</h3>
-        </motion.div>
-        <motion.div 
-           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(0,245,255,0)', '0px 10px 20px rgba(0,245,255,0.15)', '0px 0px 0px rgba(0,245,255,0)'] }}
-           transition={{ duration: 4, delay: 0.5, repeat: Infinity, ease: 'easeInOut' }}
-           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-electric-cyan/30 transition-colors"
-        >
-           <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Clock size={120} /></div>
-           <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Pending Requests</p>
-           <h3 className="text-5xl font-black text-white">{pendingSalons.length}</h3>
-        </motion.div>
-        <motion.div 
-           animate={{ y: [0, -5, 0], boxShadow: ['0px 0px 0px rgba(255,255,255,0)', '0px 10px 20px rgba(255,255,255,0.1)', '0px 0px 0px rgba(255,255,255,0)'] }}
-           transition={{ duration: 4, delay: 1, repeat: Infinity, ease: 'easeInOut' }}
-           className="bg-background-card border border-white/5 p-6 rounded-3xl relative overflow-hidden group hover:border-white/20 transition-colors"
-        >
-           <div className="absolute -right-6 -top-6 opacity-5 group-hover:opacity-10 transition-opacity"><Radio size={120} /></div>
-           <p className="text-xs font-black uppercase text-text-muted tracking-widest mb-2">Monitored Cameras</p>
-           <h3 className="text-5xl font-black text-white">{heartbeats.length}</h3>
-        </motion.div>
-      </div>
-
-      {/* Audit Log */}
-      <h3 className="text-sm font-black uppercase tracking-widest text-text-muted border-b border-white/10 pb-2 mb-4">Approval Audit Log</h3>
-      <div className="bg-background-panel rounded-2xl border border-white/5 p-2 overflow-x-auto">
-         <table className="w-full text-left text-sm text-text-muted">
-           <thead>
-             <tr className="border-b border-white/5 uppercase text-[10px] tracking-widest">
-               <th className="p-4">Salon Name</th>
-               <th className="p-4">Approved By</th>
-               <th className="p-4">Time</th>
-             </tr>
-           </thead>
-           <tbody>
-             {approvedSalons.slice(0, 5).map(s => (
-               <tr key={s.id} className="border-b border-white/5 bg-white/[0.01] hover:bg-white/[0.05] transition-colors">
-                 <td className="p-4 font-bold text-white">{s.name}</td>
-                 <td className="p-4 font-mono text-electric-cyan">{s.approved_by || 'Unknown'}</td>
-                 <td className="p-4">{s.approved_at ? new Date(s.approved_at).toLocaleString() : 'N/A'}</td>
-               </tr>
-             ))}
-             {approvedSalons.length === 0 && (
-               <tr><td colSpan="3" className="p-4 text-center">No audit records found.</td></tr>
-             )}
-           </tbody>
-         </table>
-      </div>
-    </div>
-  );
-
-  // SUB-RENDER: Pending Requests (With Sidebar)
-  const renderPending = () => (
-    <div className="flex gap-6 relative animate-in fade-in slide-in-from-bottom-4 duration-500 h-full">
-      {/* Left List */}
-      <div className={`flex-1 transition-all duration-300 ${selectedPending ? 'hidden lg:block lg:w-2/3' : 'w-full'}`}>
-         {pendingSalons.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-32 border border-dashed border-white/10 rounded-[32px] text-text-muted">
-               <CheckCircle size={48} className="mb-4 opacity-50" />
-               <p className="font-bold tracking-widest uppercase">No pending requests</p>
-            </div>
-         ) : (
-            <div className="grid grid-cols-1 gap-4">
-              {pendingSalons.map(s => (
-                <div 
-                  key={s.id} 
-                  onClick={() => setSelectedPending(s)}
-                  className={`cursor-pointer p-5 bg-background-card border rounded-2xl flex items-center justify-between transition-all ${selectedPending?.id === s.id ? 'border-electric-cyan bg-electric-cyan/5' : 'border-white/5 hover:border-white/20'}`}
-                >
-                   <div>
-                     <h4 className="font-black text-white text-lg">{s.name}</h4>
-                     <p className="text-xs text-text-muted flex items-center gap-1 mt-1"><MapPin size={12}/> {s.location || 'Unknown'}</p>
-                   </div>
-                   <div className="bg-yellow-500/10 text-yellow-500 px-3 py-1 rounded text-xs font-bold uppercase tracking-widest">Needs Review</div>
-                </div>
-              ))}
-            </div>
-         )}
-      </div>
-
-      {/* Verification Sidebar (Right) */}
-      <AnimatePresence>
-        {selectedPending && (
-          <motion.div 
-            initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}
-            className="w-full lg:w-1/3 bg-background-panel border border-white/10 rounded-[32px] p-6 lg:sticky lg:top-8 h-fit shadow-2xl flex flex-col gap-6"
-          >
-            <div className="flex justify-between items-center border-b border-white/5 pb-4">
-              <h3 className="font-black uppercase tracking-widest text-sm flex items-center gap-2"><Shield size={16} className="text-electric-cyan"/> KYC Verification</h3>
-              <button onClick={() => setSelectedPending(null)} className="text-text-muted hover:text-white"><XCircle size={20}/></button>
-            </div>
-
-            <div className="space-y-4">
-              <div><p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Salon Name</p><p className="text-white font-bold">{selectedPending.name}</p></div>
-              <div><p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Location String</p><p className="text-white text-sm">{selectedPending.location || 'N/A'}</p></div>
-              <div><p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Database ID</p><p className="font-mono text-xs text-electric-cyan">{selectedPending.id}</p></div>
-            </div>
-
-            {/* Document Placeholder */}
-            <div>
-              <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest mb-2">Business Record</p>
-              <div className="border border-dashed border-white/20 rounded-xl p-6 flex flex-col items-center justify-center bg-white/5 h-40">
-                <Lock className="text-electric-cyan mb-2" size={32} opacity={0.5} />
-                <span className="font-bold text-xs tracking-widest text-text-muted">PENDING VERIFICATION</span>
-                <span className="text-[10px] text-text-muted/50 mt-1">Document integration slot</span>
-              </div>
-            </div>
-
-            <div className="flex gap-2 pt-4 border-t border-white/5">
-               <button onClick={() => handleApprove(selectedPending.id)} className="flex-1 bg-white text-black font-black uppercase text-xs tracking-widest py-3 rounded-xl hover:bg-electric-cyan transition-all flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(0,245,255,0.2)]">
-                  <CheckCircle size={14} /> Approve
-               </button>
-               <button onClick={() => handleReject(selectedPending.id)} className="flex-1 bg-red-500/10 text-red-500 border border-red-500/20 font-black uppercase text-xs tracking-widest py-3 rounded-xl hover:bg-red-500 hover:text-white transition-all flex justify-center items-center gap-2">
-                  <XCircle size={14} /> Deny
-               </button>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-
-  // SUB-RENDER: Heartbeats
-  const renderHeartbeats = () => (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-         {heartbeats.map(hb => {
-            const status = getPulseStatus(hb.last_pulse);
-            return (
-              <div key={hb.salon_id} className={`p-6 rounded-3xl border transition-all ${status.bg}`}>
-                 <div className="flex justify-between items-start mb-4">
-                   <h4 className="font-black text-white text-lg leading-tight w-2/3">{hb.salon_name}</h4>
-                   <Radio size={24} className={status.color} />
-                 </div>
-                 <div className="space-y-1">
-                   <p className="text-[10px] font-bold text-text-muted uppercase tracking-widest">Last Pulse</p>
-                   <p className={`font-mono text-sm ${status.color}`}>
-                     {hb.last_pulse ? new Date(hb.last_pulse).toLocaleTimeString() : 'Never'}
-                   </p>
-                 </div>
-                 <div className={`mt-4 inline-block px-3 py-1 bg-black/40 rounded text-[10px] font-black tracking-widest ${status.color}`}>
-                   {status.label}
-                 </div>
-              </div>
-            );
-         })}
-         {heartbeats.length === 0 && (
-            <div className="col-span-full text-center py-24 text-text-muted font-bold tracking-widest border border-dashed border-white/10 rounded-3xl">NO ACTIVE CAMERAS FOUND</div>
-         )}
-       </div>
-    </div>
-  );
-
-  // ------------------------------------------
-  // MAIN LAYOUT
-  // ------------------------------------------
   return (
-    <div className="bg-[#050505] min-h-screen text-text-main flex flex-col md:flex-row">
+    <div className="bg-background-main min-h-screen text-text-main flex flex-col xl:flex-row selection:bg-primary/20 font-sans">
        {/* Error Toast */}
-       {error && <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-500 text-white px-6 py-2 rounded-full font-bold shadow-xl border border-red-400">{error}</div>}
+       <AnimatePresence>
+         {error && (
+           <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -20 }} className="fixed top-8 left-1/2 -translate-x-1/2 z-[100] bg-danger text-white px-8 py-3 rounded-full font-black uppercase text-[10px] tracking-widest shadow-premium border border-white/20 flex items-center gap-3">
+             <ShieldAlert size={16} /> {error}
+           </motion.div>
+         )}
+       </AnimatePresence>
        
-       {/* Fixed Sidebar */}
-       <aside className="w-full md:w-64 md:fixed md:h-screen bg-background-panel/80 backdrop-blur-3xl border-r border-white/5 flex flex-col p-6 z-40">
-         <div className="flex flex-col items-center mb-10 pb-6 border-b border-white/5 pt-4">
-            <div className="w-16 h-16 bg-gradient-to-tr from-electric-cyan to-blue-600 rounded-full flex items-center justify-center mb-3 shadow-[0_0_20px_rgba(0,245,255,0.4)]">
-              <Shield className="text-white" size={32} />
+       {/* High-Authority Sidebar */}
+       <aside className="w-full xl:w-80 xl:fixed xl:h-screen bg-background-card/50 backdrop-blur-3xl border-r border-border-subtle flex flex-col p-10 z-[50]">
+         <div className="flex flex-col items-center mb-16 pb-10 border-b border-border-subtle pt-6">
+            <div className="w-20 h-20 bg-primary/10 border border-primary/20 rounded-[32px] flex items-center justify-center mb-5 shadow-premium group transition-smooth">
+              <Shield className="text-primary group-hover:scale-110 transition-transform" size={40} />
             </div>
-            <h1 className="font-black uppercase tracking-widest text-sm text-white text-center">Root Access</h1>
-            <p className="text-[10px] font-mono text-electric-cyan mt-1">SYS.ADMIN</p>
+            <h1 className="font-heading font-black uppercase tracking-tighter text-2xl text-text-main leading-none">Root <span className="text-primary italic">X</span></h1>
+            <div className="inline-flex items-center gap-2 mt-4 px-4 py-1.5 bg-primary/5 rounded-full border border-primary/20">
+               <div className="w-1.5 h-1.5 rounded-full bg-primary pulse-primary" />
+               <p className="text-[9px] font-black text-primary uppercase tracking-[0.2em]">High Authority Access</p>
+            </div>
          </div>
 
-         <nav className="flex-1 space-y-2">
-            <SidebarBtn icon={<LayoutDashboard size={18}/>} label="Dashboard" active={activeTab==='dashboard'} onClick={()=>setActiveTab('dashboard')} />
-            <SidebarBtn icon={<Clock size={18}/>} label="Pending Requests" active={activeTab==='pending'} onClick={async ()=>{ setActiveTab('pending'); setSelectedPending(null); await fetchAllData(); }} />
-            <SidebarBtn icon={<Radio size={18}/>} label="Camera Pulses" active={activeTab==='heartbeats'} onClick={()=>{ setActiveTab('heartbeats'); fetchAllData(); }} />
+         <nav className="flex-1 space-y-4">
+            <SidebarLink icon={<LayoutDashboard size={18}/>} label="COMMAND HUB" active={activeTab==='dashboard'} onClick={()=>setActiveTab('dashboard')} />
+            <SidebarLink icon={<Clock size={18}/>} label="PENDING NODES" badge={pendingSalons.length} active={activeTab==='pending'} onClick={async ()=>{ setActiveTab('pending'); setSelectedPending(null); await fetchAllData(); }} />
+            <SidebarLink icon={<Radio size={18}/>} label="SIGNAL AUDIT" active={activeTab==='heartbeats'} onClick={()=>{ setActiveTab('heartbeats'); fetchAllData(); }} />
          </nav>
 
-         <button onClick={logout} className="mt-8 flex items-center gap-3 w-full p-3 text-text-muted hover:text-red-400 hover:bg-red-400/10 rounded-xl transition-all font-bold text-xs uppercase tracking-widest">
-            <LogOut size={16} /> Secure Logout
+         <button onClick={logout} className="mt-12 flex items-center gap-4 w-full p-4 text-text-dim hover:text-danger hover:bg-danger/10 rounded-[28px] transition-smooth font-black text-[10px] uppercase tracking-[0.25em] border border-transparent hover:border-danger/20">
+            <LogOut size={16} /> Secure Termination
          </button>
        </aside>
 
-       {/* Main Content Area */}
-       <main className="flex-1 md:ml-64 p-6 lg:p-12 relative min-h-screen">
-          {/* Header Title based on Tab */}
-          <header className="mb-10 flex justify-between items-end border-b border-white/5 pb-4">
+       {/* HUB CONTENT AREA */}
+       <main className="flex-1 xl:ml-80 p-10 xl:p-20 relative min-h-screen">
+          <header className="mb-16 flex flex-col md:flex-row md:items-end justify-between border-b border-border-subtle pb-10 gap-8">
              <div>
-               <h2 className="text-3xl font-black text-white capitalize tracking-tighter">{activeTab.replace('-', ' ')}</h2>
-               <p className="text-xs font-bold text-text-muted uppercase tracking-widest mt-1 text-electric-cyan">Real-time Command Feed</p>
+               <div className="inline-flex items-center gap-3 text-primary text-[10px] font-black uppercase tracking-[0.3em] mb-4">
+                  <Activity size={14} className="animate-pulse" /> Live Command Stream
+               </div>
+               <h2 className="text-5xl font-heading font-black text-text-main uppercase tracking-tighter leading-none">{activeTab.replace('-', ' ')} <span className="text-primary italic">.</span></h2>
              </div>
-             {loading && <div className="w-5 h-5 border-2 border-electric-cyan border-t-transparent rounded-full animate-spin"></div>}
+             <div className="flex items-center gap-4">
+                <button onClick={fetchAllData} disabled={loading} className="p-4 bg-background-card border border-border-subtle rounded-2xl hover:bg-white/5 transition-smooth text-text-dim">
+                   <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
+                </button>
+                <div className="px-6 py-4 bg-background-card border border-border-subtle rounded-2xl flex items-center gap-4">
+                   <div className="flex flex-col items-end">
+                      <p className="text-[9px] font-black text-text-dim uppercase tracking-widest">Network Status</p>
+                      <p className="text-[11px] font-black text-primary uppercase">OPTIMAL</p>
+                   </div>
+                   <div className="w-1.5 h-10 bg-primary/20 rounded-full" />
+                </div>
+             </div>
           </header>
 
-          {/* Render Active View */}
           <div className="h-full">
-            {activeTab === 'dashboard' && renderOverview()}
-            {activeTab === 'pending' && renderPending()}
-            {activeTab === 'heartbeats' && renderHeartbeats()}
+            {activeTab === 'dashboard' && <AdminOverview approved={approvedSalons} pending={pendingSalons} pulses={heartbeats} />}
+            {activeTab === 'pending' && <PendingWorkflow list={pendingSalons} selected={selectedPending} onSelect={setSelectedPending} onApprove={handleApprove} onReject={handleReject} />}
+            {activeTab === 'heartbeats' && <PulseAudit list={heartbeats} getStatus={getPulseStatus} />}
           </div>
        </main>
     </div>
   );
 }
 
-const SidebarBtn = ({ icon, label, active, onClick }) => (
+const StatCard = ({ label, value, icon, trend, color }) => (
+  <div className="p-10 bg-background-card border border-border-subtle rounded-[56px] shadow-premium relative overflow-hidden group hover:border-primary/30 transition-smooth">
+    <div className={`absolute top-0 right-0 w-32 h-32 bg-${color}/5 blur-3xl -z-10`} />
+    <div className="flex justify-between items-start mb-10">
+      <div className={`p-4 bg-${color}/10 rounded-2xl text-${color} border border-${color}/20`}>
+        {icon}
+      </div>
+      <div className={`px-4 py-1.5 bg-${color === 'primary' ? 'primary/10' : 'accent/10'} rounded-full text-[9px] font-black uppercase tracking-widest ${color === 'primary' ? 'text-primary' : 'text-accent'}`}>
+        {trend}
+      </div>
+    </div>
+    <div>
+      <h4 className="text-[10px] font-black text-text-dim uppercase tracking-[0.3em] mb-3">{label}</h4>
+      <p className="text-5xl font-heading font-black text-text-main">{value}</p>
+    </div>
+  </div>
+);
+
+const AdminOverview = ({ approved, pending, pulses }) => (
+  <div className="space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <StatCard label="VERIFIED NODES" value={approved.length} icon={<Building2 size={24} />} trend="+4.2%" color="primary" />
+      <StatCard label="PENDING AUDITS" value={pending.length} icon={<Clock size={24} />} trend="CRITICAL" color="accent" />
+      <StatCard label="ACTIVE PULSES" value={pulses.length} icon={<Radio size={24} />} trend="NOMINAL" color="primary" />
+    </div>
+
+    <div className="space-y-8 pt-8">
+       <div className="flex items-center justify-between">
+          <h3 className="text-sm font-black uppercase tracking-[0.3em] text-text-dim">Verification Ledger</h3>
+          <button className="text-[10px] font-black text-primary uppercase tracking-[0.2em] hover:opacity-70">Expand Master File</button>
+       </div>
+       <div className="bg-background-card rounded-[48px] border border-border-subtle p-6 overflow-hidden shadow-premium">
+          <table className="w-full text-left">
+            <thead>
+              <tr className="border-b border-border-subtle uppercase text-[10px] tracking-[0.3em] text-text-dim font-black">
+                <th className="p-8">Entity Identifier</th>
+                <th className="p-8">Clearance Authority</th>
+                <th className="p-8 text-right">Commit Sequence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approved.slice(0, 8).map(s => (
+                <tr key={s.id} className="border-b border-white/5 bg-white/[0.01] hover:bg-white/[0.05] transition-smooth group">
+                  <td className="p-8">
+                     <div className="flex flex-col">
+                        <span className="font-heading font-black text-lg text-text-main group-hover:text-primary transition-colors">{s.name}</span>
+                        <span className="text-[9px] font-mono text-text-dim uppercase tracking-widest mt-1">ID_{s.id.slice(-8).toUpperCase()}</span>
+                     </div>
+                  </td>
+                  <td className="p-8">
+                     <div className="inline-flex items-center gap-2 px-4 py-1.5 bg-background-main rounded-xl border border-border-subtle text-[10px] font-black text-accent uppercase tracking-widest">
+                        <ShieldCheck size={12} /> {s.approved_by || 'LEGACY_IMPORT'}
+                     </div>
+                  </td>
+                  <td className="p-8 text-right font-mono text-xs text-text-dim">
+                     {s.approved_at ? new Date(s.approved_at).toLocaleString() : 'AUTH_REDACTED'}
+                  </td>
+                </tr>
+              ))}
+              {approved.length === 0 && (
+                <tr><td colSpan="3" className="p-20 text-center text-text-dim font-black uppercase tracking-widest italic opacity-30">Ledger Empty • Waiting for Initial Sequence</td></tr>
+              )}
+            </tbody>
+          </table>
+       </div>
+    </div>
+  </div>
+);
+
+const PendingWorkflow = ({ list, selected, onSelect, onApprove, onReject }) => (
+  <div className="flex flex-col lg:flex-row gap-10 h-full animate-in fade-in slide-in-from-bottom-6 duration-700">
+    <div className={`flex-1 space-y-4 ${selected ? 'hidden lg:block' : 'block'}`}>
+       <div className="grid grid-cols-1 gap-4">
+         {list.map(s => (
+           <motion.div 
+             key={s.id} layout layoutId={s.id}
+             onClick={() => onSelect(s)}
+             className={`cursor-pointer p-8 bg-background-card border rounded-[40px] flex items-center justify-between group transition-smooth hover:shadow-premium ${selected?.id === s.id ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-border-subtle hover:border-primary/30'}`}
+           >
+              <div className="flex items-center gap-8">
+                 <div className="w-14 h-14 bg-background-panel rounded-2xl flex items-center justify-center border border-border-subtle text-text-dim group-hover:text-primary transition-colors">
+                    <Building2 size={24} />
+                 </div>
+                 <div>
+                    <h4 className="font-heading font-black text-xl text-text-main leading-none mb-2">{s.name}</h4>
+                    <p className="text-[10px] font-black text-text-dim flex items-center gap-2 uppercase tracking-widest"><MapPin size={12}/> {s.location || 'COORD_UNKNOWN'}</p>
+                 </div>
+              </div>
+              <div className="bg-accent/10 text-accent px-5 py-2 rounded-2xl text-[9px] font-black uppercase tracking-[0.2em] border border-accent/20 flex items-center gap-2">
+                 <Bell size={12} className="animate-bounce" /> Awaiting Review
+              </div>
+           </motion.div>
+         ))}
+         {list.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-40 border-2 border-dashed border-border-subtle rounded-[56px] text-text-dim">
+               <ShieldCheck size={64} className="mb-6 opacity-20" />
+               <p className="font-black tracking-[0.3em] uppercase text-xs">Clearance Queue Empty</p>
+            </div>
+         )}
+       </div>
+    </div>
+
+    <AnimatePresence>
+      {selected && (
+        <motion.div 
+          initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }}
+          className="w-full lg:w-[480px] bg-background-card border border-primary/20 rounded-[56px] p-10 lg:sticky lg:top-20 h-fit shadow-premium relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 blur-[100px] -z-10" />
+          <div className="flex justify-between items-center mb-12">
+            <h3 className="font-heading font-black uppercase tracking-tighter text-xl flex items-center gap-3"><Shield size={20} className="text-primary"/> Verification Hub</h3>
+            <button onClick={() => onSelect(null)} className="p-3 bg-white/5 border border-border-subtle rounded-2xl text-text-dim hover:text-text-main transition-smooth"><XCircle size={20}/></button>
+          </div>
+
+          <div className="space-y-10">
+            <div className="grid grid-cols-2 gap-8">
+               <InfoItem label="NODE IDENTITY" value={selected.name} />
+               <InfoItem label="GEOSPATIAL STRING" value={selected.location || 'N/A'} />
+            </div>
+            <div className="p-1.5 bg-background-main rounded-[28px] border border-border-subtle">
+               <div className="p-8 border border-dashed border-border-subtle rounded-[24px] flex flex-col items-center justify-center bg-white/5 h-48 group">
+                 <FileText className="text-primary mb-4 transition-smooth group-hover:scale-110" size={40} opacity={0.4} />
+                 <span className="font-black text-[10px] tracking-[0.3em] text-text-dim uppercase">Credential.sys file</span>
+                 <span className="text-[9px] text-text-dim/40 mt-3 font-mono tracking-widest uppercase">Encryption active • View Payload</span>
+               </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-6">
+               <button onClick={() => onApprove(selected.id)} className="bg-primary text-background-main font-black uppercase text-[10px] tracking-[0.25em] py-5 rounded-[28px] hover:shadow-[0_0_20px_var(--primary-glow)] transition-smooth flex justify-center items-center gap-3">
+                  <CheckCircle size={14} /> AUTHORIZE
+               </button>
+               <button onClick={() => onReject(selected.id)} className="bg-white/5 text-danger border border-danger/20 font-black uppercase text-[10px] tracking-[0.25em] py-5 rounded-[28px] hover:bg-danger hover:text-white transition-smooth flex justify-center items-center gap-3">
+                  <XCircle size={14} /> TERMINATE
+               </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  </div>
+);
+
+const PulseAudit = ({ list, getStatus }) => (
+  <div className="animate-in fade-in slide-in-from-bottom-6 duration-700">
+     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+       {list.map(hb => {
+          const status = getStatus(hb.last_pulse);
+          return (
+            <div key={hb.salon_id} className={`p-10 rounded-[48px] border shadow-premium group transition-smooth hover:scale-[1.02] ${status.bg}`}>
+               <div className="flex justify-between items-start mb-10">
+                 <div className="flex flex-col gap-2">
+                    <h4 className="font-heading font-black text-2xl text-text-main leading-tight uppercase tracking-tight group-hover:text-primary transition-colors">{hb.salon_name}</h4>
+                    <span className="text-[9px] font-mono text-text-dim uppercase tracking-widest">S_HUB_{hb.salon_id.slice(-6).toUpperCase()}</span>
+                 </div>
+                 <div className={`p-4 rounded-3xl bg-background-main border border-border-subtle transition-smooth group-hover:rotate-12 ${status.color}`}>
+                    <Radio size={28} />
+                 </div>
+               </div>
+               <div className="space-y-3 mb-10">
+                 <p className="text-[10px] font-black text-text-dim uppercase tracking-[0.3em]">Last Signal Sequence</p>
+                 <div className="flex items-center gap-3">
+                    <Clock size={16} className="text-text-dim" />
+                    <p className={`font-mono text-lg font-black tracking-tight ${status.color}`}>
+                      {hb.last_pulse ? new Date(hb.last_pulse).toLocaleTimeString() : 'SIGNAL_LOST'}
+                    </p>
+                 </div>
+               </div>
+               <div className={`inline-flex items-center gap-3 px-6 py-2 bg-background-main rounded-2xl text-[10px] font-black tracking-[0.25em] border border-border-subtle ${status.color}`}>
+                 <div className={`w-2 h-2 rounded-full pulse-primary`} />
+                 {status.label}
+               </div>
+            </div>
+          );
+       })}
+       {list.length === 0 && (
+          <div className="col-span-full flex flex-col items-center justify-center py-40 border-2 border-dashed border-border-subtle rounded-[64px] text-text-dim">
+             <ShieldAlert size={64} className="mb-6 opacity-10" />
+             <p className="font-black tracking-[0.4em] uppercase text-xs">Zero Visual Streams Found</p>
+          </div>
+       )}
+     </div>
+  </div>
+);
+
+const InfoItem = ({ label, value }) => (
+  <div className="space-y-2">
+    <p className="text-[9px] font-black text-text-dim uppercase tracking-[0.3em]">{label}</p>
+    <p className="text-text-main font-heading font-black text-sm uppercase tracking-tight leading-tight">{value}</p>
+  </div>
+);
+
+const SidebarLink = ({ icon, label, active, onClick, badge }) => (
   <button 
     onClick={onClick}
-    className={`w-full flex items-center gap-3 p-4 rounded-2xl font-bold text-xs uppercase tracking-widest transition-all ${active ? 'bg-electric-cyan/10 text-electric-cyan border border-electric-cyan/20' : 'text-text-muted hover:bg-white/5 hover:text-white border border-transparent'}`}
+    className={`w-full flex items-center justify-between p-5 rounded-[28px] font-black text-[10px] uppercase tracking-[0.25em] transition-smooth group relative overflow-hidden ${active ? 'bg-primary text-background-main shadow-premium border border-primary/20' : 'text-text-dim hover:bg-white/5 hover:text-text-main border border-transparent hover:border-border-subtle'}`}
   >
-    {icon} {label}
+    <div className="flex items-center gap-4 relative z-10 transition-smooth group-hover:translate-x-1">
+       {icon} {label}
+    </div>
+    {badge > 0 && (
+       <span className={`relative z-10 px-3 py-1 rounded-full text-[9px] font-black shadow-inner ${active ? 'bg-background-main text-primary' : 'bg-primary text-background-main animate-pulse'}`}>
+          {badge}
+       </span>
+    )}
   </button>
 );
+
+const AuthInput = ({ label, icon, onChange, ...props }) => (
+  <div className="space-y-4">
+    <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-dim ml-3">{label}</label>
+    <div className="relative group">
+       <div className="absolute left-6 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth">{icon}</div>
+       <input 
+         {...props} 
+         onChange={(e) => onChange(e.target.value)}
+         className="w-full bg-background-main/50 border border-border-subtle rounded-[28px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main placeholder:text-text-dim/30" 
+       />
+    </div>
+  </div>
+);
+
+
