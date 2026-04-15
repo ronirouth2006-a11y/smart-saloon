@@ -243,7 +243,7 @@ export default function MapView() {
             <div className="relative flex-1 group">
                <Search size={20} className="absolute left-5 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth" />
                <input 
-                 className="w-full bg-background-card/90 backdrop-blur-2xl border border-border-bright rounded-[20px] py-4 pl-14 pr-6 shadow-premium focus:outline-none focus:border-primary/50 transition-smooth text-sm font-medium" 
+                 className="w-full bg-background-card border border-border-bright rounded-[20px] py-4 pl-14 pr-6 shadow-premium focus:outline-none focus:border-primary/50 focus:bg-background-panel transition-smooth text-sm font-medium text-text-main placeholder:text-text-muted" 
                  placeholder="Search salons or locations..." 
                  value={searchTerm}
                  onChange={e => setSearchTerm(e.target.value)}

@@ -410,11 +410,11 @@ export default function Dashboard() {
                     <div className="space-y-4">
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-text-dim ml-2">MEMBER IDENTITY</label>
-                          <input className="w-full bg-background-main/50 border border-border-subtle rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth" placeholder="e.g. Victor Nova" value={newBarberName} onChange={e => setNewBarberName(e.target.value)} />
+                          <input className="w-full bg-background-main border border-border-subtle rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main placeholder:text-text-muted" placeholder="e.g. Victor Nova" value={newBarberName} onChange={e => setNewBarberName(e.target.value)} />
                        </div>
                        <div className="space-y-2">
                           <label className="text-[9px] font-black uppercase tracking-widest text-text-dim ml-2">CORE CAPABILITY</label>
-                          <input className="w-full bg-background-main/50 border border-border-subtle rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth" placeholder="e.g. Precision Fade" value={newBarberSpecs} onChange={e => setNewBarberSpecs(e.target.value)} />
+                          <input className="w-full bg-background-main border border-border-subtle rounded-2xl py-4 px-6 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main placeholder:text-text-muted" placeholder="e.g. Precision Fade" value={newBarberSpecs} onChange={e => setNewBarberSpecs(e.target.value)} />
                        </div>
                     </div>
                     <button onClick={addBarber} className="bg-primary text-background-main w-full py-5 rounded-[24px] font-black text-[10px] uppercase tracking-[0.2em] hover:shadow-[0_0_20px_var(--primary-glow)] transition-smooth flex items-center justify-center gap-3">
@@ -492,7 +492,7 @@ const SettingsInput = ({ label, icon, ...props }) => (
     <label className="text-[10px] font-black uppercase tracking-[0.3em] text-text-dim ml-3">{label}</label>
     <div className="relative group">
        <div className="absolute left-6 top-1/2 -translate-y-1/2 text-text-dim group-focus-within:text-primary transition-smooth">{icon}</div>
-       <input {...props} className="w-full bg-background-main/50 border border-border-subtle rounded-[28px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main" />
+       <input {...props} className="w-full bg-background-main border border-border-subtle rounded-[28px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-panel transition-smooth text-text-main placeholder:text-text-muted" />
     </div>
   </div>
 );

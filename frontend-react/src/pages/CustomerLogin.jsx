@@ -155,7 +155,7 @@ const FormInput = ({ icon, label, type="text", value, onChange, placeholder }) =
        <input 
          type={type} required value={value}
          onChange={e => onChange(e.target.value)}
-         className="w-full bg-background-main/50 border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 transition-smooth text-text-main" 
+         className="w-full bg-background-main border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main placeholder:text-text-muted" 
          placeholder={placeholder}
        />
     </div>

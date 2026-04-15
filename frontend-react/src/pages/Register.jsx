@@ -336,7 +336,7 @@ const FormInput = ({ icon, label, type="text", ...props }) => (
        <input 
          {...props} type={type} required
          onChange={e => props.onChange(e.target.value)}
-         className="w-full bg-background-main border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main shadow-inner" 
+         className="w-full bg-background-main border border-border-subtle rounded-[24px] py-5 pl-16 pr-8 text-sm font-bold focus:outline-none focus:border-primary/50 focus:bg-background-card transition-smooth text-text-main shadow-inner placeholder:text-text-muted" 
        />
     </div>
   </div>
