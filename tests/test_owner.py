@@ -1,8 +1,10 @@
 import pytest
+from models import Owner, Saloon
 
 # Test the core registration and login logic
-def test_owner_register(client):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_owner_register(client):
+    response = await client.post(
         "/owner/register",
         json={
             "owner_name": "Test Owner",
@@ -11,7 +13,8 @@ def test_owner_register(client):
             "salon_name": "Test Salon",
             "phone": "9876543210",
             "latitude": 22.5726,
-            "longitude": 88.3639
+            "longitude": 88.3639,
+            "location": "Test Location"
         }
     )
     assert response.status_code == 200
@@ -19,16 +22,16 @@ def test_owner_register(client):
     assert "Registration Successful" in data["message"]
     assert "salon_id" in data
 
-def test_owner_login(client, db_session):
+@pytest.mark.asyncio
+async def test_owner_login(client):
     # Approve salon first since test_owner_register doesn't auto-approve
-    from models import Owner, Saloon
-    owner = db_session.query(Owner).filter(Owner.email == "testowner@example.com").first()
-    salon = db_session.query(Saloon).filter(Saloon.owner_id == owner.id).first()
+    owner = await Owner.find_one(Owner.email == "testowner@example.com")
+    salon = await Saloon.find_one(Saloon.owner_id == str(owner.id))
     if salon:
         salon.is_approved = True
-        db_session.commit()
+        await salon.save()
 
-    response = client.post(
+    response = await client.post(
         "/owner/login",
         json={
             "email": "testowner@example.com",
@@ -40,8 +43,9 @@ def test_owner_login(client, db_session):
     assert "access_token" in data
     assert data["token_type"] == "bearer"
 
-def test_login_invalid_password(client):
-    response = client.post(
+@pytest.mark.asyncio
+async def test_login_invalid_password(client):
+    response = await client.post(
         "/owner/login",
         json={
             "email": "testowner@example.com",
@@ -50,18 +54,10 @@ def test_login_invalid_password(client):
     )
     assert response.status_code == 401
 
-def test_owner_protected_route(client, db_session):
-    # Ensure it's approved
-    from models import Owner, Saloon
-    owner = db_session.query(Owner).filter(Owner.email == "testowner@example.com").first()
-    if owner:
-        salon = db_session.query(Saloon).filter(Saloon.owner_id == owner.id).first()
-        if salon:
-            salon.is_approved = True
-            db_session.commit()
-
+@pytest.mark.asyncio
+async def test_owner_protected_route(client):
     # First login to get a token
-    login_response = client.post(
+    login_response = await client.post(
         "/owner/login",
         json={
             "email": "testowner@example.com",
@@ -71,7 +67,7 @@ def test_owner_protected_route(client, db_session):
     token = login_response.json()["access_token"]
 
     # Now toggle status using the bearer token
-    toggle_response = client.put(
+    toggle_response = await client.put(
         "/owner/toggle-status",
         json={"is_active": False},
         headers={"Authorization": f"Bearer {token}"}

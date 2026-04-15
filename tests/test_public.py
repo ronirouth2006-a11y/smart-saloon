@@ -1,7 +1,8 @@
 import pytest
 
-def test_get_nearby_salons(client):
-    response = client.get(
+@pytest.mark.asyncio
+async def test_get_nearby_salons(client):
+    response = await client.get(
         "/public/salons/nearby",
         params={
             "user_lat": 22.5726,

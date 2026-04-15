@@ -3,6 +3,9 @@ from datetime import datetime, timezone
 import models
 import schemas
 from auth import get_admin_user, create_token, verify_password
+import logging
+
+logger = logging.getLogger("smart_saloon")
 
 router = APIRouter(prefix="/admin/api/v1", tags=["Admin"])
 
@@ -10,6 +13,7 @@ router = APIRouter(prefix="/admin/api/v1", tags=["Admin"])
 async def login_admin(credentials: schemas.AdminLogin):
     user = await models.AdminUser.find_one(models.AdminUser.email == credentials.email)
     if not user or not verify_password(credentials.password, user.password):
+        logger.warning(f"Failed login attempt for admin email: {credentials.email}")
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
     # Generate token with sub and role

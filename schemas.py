@@ -1,15 +1,15 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, ConfigDict
 from typing import Optional, List
 
 class OwnerRegister(BaseModel):
-    owner_name: str
-    email: str
-    password: str
-    salon_name: str
-    phone: str
+    owner_name: str = Field(..., min_length=1)
+    email: str = Field(..., min_length=1)
+    password: str = Field(..., min_length=1)
+    salon_name: str = Field(..., min_length=1)
+    phone: str = Field(..., min_length=1)
     latitude: float
     longitude: float
-    location: str
+    location: str = Field(..., min_length=1)
 
 class CustomerRegister(BaseModel):
     name: str
@@ -32,7 +32,7 @@ class AdminLogin(BaseModel):
 # 2. For receiving data from YOLO camera
 class CameraUpdate(BaseModel):
     saloon_id: str  # Updated to str for MongoDB
-    people: int
+    people: int = Field(..., ge=0)
 
 # 3. For shop open/close toggle
 class SalonStatusUpdate(BaseModel):
@@ -48,8 +48,7 @@ class SalonResponse(BaseModel):
     is_active: bool
     camera_url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BarberCreate(BaseModel):
     name: str
@@ -61,12 +60,11 @@ class BarberResponse(BaseModel):
     specialty: str
     is_available: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class SalonUpdate(BaseModel):
-    name: Optional[str] = None
-    max_limit: Optional[int] = None
+    name: Optional[str] = Field(None, min_length=1)
+    max_limit: Optional[int] = Field(None, gt=0)
     assistant_phone: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None

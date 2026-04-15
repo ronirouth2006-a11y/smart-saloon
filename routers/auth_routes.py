@@ -22,12 +22,12 @@ async def forgot_password(data: ForgotPasswordRequest):
         return {"message": "If the email exists, a reset code was generated."}
     
     # Generate a short-lived token (15 mins) specifically for resetting
-    reset_token = auth.create_token({"sub": owner.email, "type": "reset"})
+    reset_token = auth.create_reset_token(owner.email)
     
     # Log the token (SMTP placeholder)
     print("\n" + "="*50)
-    print(f"🔒 PASSWORD RESET REQUEST for {owner.email}")
-    print(f"🔑 RESET TOKEN: {reset_token}")
+    print(f"[PASSWORD RESET REQUEST] for {owner.email}")
+    print(f"[RESET TOKEN] {reset_token}")
     print("="*50 + "\n")
     
     return {"message": "Reset code generated check console."}

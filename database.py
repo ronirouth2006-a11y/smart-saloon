@@ -17,7 +17,7 @@ async def init_db():
         client = AsyncIOMotorClient(
             settings.DATABASE_URL, 
             serverSelectionTimeoutMS=5000,
-            tlsAllowInvalidCertificates=True  # Temporary debug for SSL handshake alerts
+            tlsAllowInvalidCertificates=settings.LOCAL_DEBUG  # Security Fix
         )
         db = client.get_default_database()
         print("Initializing Beanie with models...")

@@ -26,11 +26,17 @@ def verify_password(password: str, hashed: str):
     return pwd_context.verify(pre_hashed, hashed)
 
 # 2. Token Generation
-def create_token(data: dict):
+def create_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(hours=24)
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(hours=24)
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+def create_reset_token(sub: str):
+    return create_token({"sub": sub, "type": "reset"}, expires_delta=timedelta(minutes=15))
 
 from fastapi import Request
 

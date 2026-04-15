@@ -28,12 +28,17 @@ async def update_count(
     # 🍃 Find or Create LiveStatus for the salon
     record = await LiveStatus.find_one(LiveStatus.saloon_id == data.saloon_id)
 
+    delta = 0
     if record:
+        if data.people > record.current_count:
+            delta = data.people - record.current_count
+            
         record.current_count = data.people
         record.status = status
         record.updated_at = datetime.now(timezone.utc)
         await record.save()
     else:
+        delta = data.people
         record = LiveStatus(
             saloon_id=data.saloon_id,
             current_count=data.people,
@@ -48,8 +53,9 @@ async def update_count(
         analytics = models.Analytics(saloon_id=data.saloon_id)
         await analytics.insert()
 
-    # Increment today's count
-    analytics.total_customers_today = (analytics.total_customers_today or 0) + 1
-    await analytics.save()
+    # Increment today's count based on delta
+    if delta > 0:
+        analytics.total_customers_today = (analytics.total_customers_today or 0) + delta
+        await analytics.save()
 
     return {"message": "Count updated"}

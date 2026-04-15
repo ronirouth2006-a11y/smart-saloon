@@ -1,12 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Query
 import models, schemas, auth
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from auth import get_current_user
 import uuid
 import os
 import shutil
 import pytz
 import random
+import logging
+
+logger = logging.getLogger("smart_saloon")
 
 router = APIRouter(prefix="/owner", tags=["Owner"])
 
@@ -70,6 +73,7 @@ async def login(data: schemas.OwnerLogin):
     owner = await models.Owner.find_one(models.Owner.email == data.email)
 
     if not owner or not auth.verify_password(data.password, owner.password):
+        logger.warning(f"Failed login attempt for owner email: {data.email}")
         raise HTTPException(status_code=401, detail="Invalid email or password")
         
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
@@ -130,7 +134,12 @@ async def upload_storefront_photo(
     if not salon or salon.owner_id != str(owner.id):
         raise HTTPException(status_code=404, detail="Salon not found or unauthorized")
 
-    file_ext = file.filename.split(".")[-1]
+    file_ext = file.filename.split(".")[-1].lower()
+    valid_extensions = {"jpg", "jpeg", "png", "webp"}
+    valid_content_types = {"image/jpeg", "image/png", "image/webp"}
+    if file_ext not in valid_extensions or getattr(file, "content_type", "") not in valid_content_types:
+        raise HTTPException(status_code=400, detail="Invalid file type. Only JPG, PNG, and WEBP allowed.")
+        
     unique_filename = f"{uuid.uuid4()}.{file_ext}"
     file_path = f"static/uploads/salons/{unique_filename}"
 
@@ -147,7 +156,7 @@ async def upload_storefront_photo(
 # =========================================================
 @router.put("/live-status")
 async def update_live_crowd(
-    current_count: int,
+    current_count: int = Query(..., ge=0),
     email: str = Depends(get_current_user)
 ):
     owner = await models.Owner.find_one(models.Owner.email == email)
@@ -206,7 +215,18 @@ async def get_analytics(
 # 5️⃣ WEEKLY & HOURLY CHART ANALYTICS
 # =========================================================
 @router.get("/analytics/{salon_id}/weekly")
-async def get_weekly_analytics(salon_id: str):
+async def get_weekly_analytics(
+    salon_id: str,
+    email: str = Depends(get_current_user)
+):
+    owner = await models.Owner.find_one(models.Owner.email == email)
+    if not owner:
+        raise HTTPException(status_code=404, detail="Owner not found")
+        
+    salon = await models.Saloon.get(salon_id)
+    if not salon or salon.owner_id != str(owner.id):
+        raise HTTPException(status_code=404, detail="Salon not found")
+        
     analytics = await models.Analytics.find_one(models.Analytics.saloon_id == salon_id)
     live_status = await models.LiveStatus.find_one(models.LiveStatus.saloon_id == salon_id)
     
@@ -287,12 +307,12 @@ async def update_salon(data: schemas.SalonUpdate, email: str = Depends(get_curre
     owner = await models.Owner.find_one(models.Owner.email == email)
     salon = await models.Saloon.find_one(models.Saloon.owner_id == str(owner.id))
     
-    if data.name: salon.name = data.name
-    if data.max_limit: salon.max_limit = data.max_limit
-    if data.assistant_phone: salon.assistant_phone = data.assistant_phone
-    if data.latitude: salon.latitude = data.latitude
-    if data.longitude: salon.longitude = data.longitude
-    if data.camera_url: salon.camera_url = data.camera_url
+    if data.name is not None: salon.name = data.name
+    if data.max_limit is not None: salon.max_limit = data.max_limit
+    if data.assistant_phone is not None: salon.assistant_phone = data.assistant_phone
+    if data.latitude is not None: salon.latitude = data.latitude
+    if data.longitude is not None: salon.longitude = data.longitude
+    if data.camera_url is not None: salon.camera_url = data.camera_url
     if data.manual_offset is not None: salon.manual_offset = data.manual_offset
     
     await salon.save()

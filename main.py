@@ -3,8 +3,19 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from contextlib import asynccontextmanager
+from fastapi.responses import JSONResponse
+from fastapi import Request
 import pytz
 import os
+import logging
+
+# 📋 Centralized Logging Configuration
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    handlers=[logging.StreamHandler()]
+)
+logger = logging.getLogger("smart_saloon")
 
 from database import init_db
 from routers.camera import router as camera_router
@@ -22,22 +33,22 @@ async def close_all_salons_at_midnight():
         await Saloon.find(Saloon.is_active == True).update({"$set": {"is_active": False}})
         # Reset all live bounds to 0
         await LiveStatus.find_all().update({"$set": {"current_count": 0, "status": "AVAILABLE"}})
-        print("🔔 Midnight CRON: All salons automatically closed and crowd counts reset.")
+        logger.info("[Midnight CRON] All salons automatically closed and crowd counts reset.")
     except Exception as e:
-        print(f"Error running midnight CRON: {e}")
+        logger.error(f"Error running midnight CRON: {e}")
 
 # 🚀 Lifespan Event for Database & Scheduler
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print("🚀 Application starting up...")
+    logger.info("[Lifecycle] Application starting up...")
     try:
         # 1. Initialize MongoDB (Beanie)
-        print("🔍 Step 1: Initializing Database...")
+        logger.info("[Step 1] Initializing Database...")
         await init_db()
-        print("✅ Database Init Complete.")
+        logger.info("[Step 1] Database Init Complete.")
         
         # 2. Setup Background Scheduler (Async version)
-        print("🔍 Step 2: Starting Scheduler...")
+        logger.info("[Step 2] Starting Scheduler...")
         scheduler = AsyncIOScheduler()
         scheduler.add_job(
             close_all_salons_at_midnight, 
@@ -47,9 +58,9 @@ async def lifespan(app: FastAPI):
             timezone=pytz.timezone('Asia/Kolkata')
         )
         scheduler.start()
-        print("✅ Scheduler Started.")
+        logger.info("[Step 2] Scheduler Started.")
     except Exception as e:
-        print(f"❌ CRITICAL STARTUP ERROR: {e}")
+        logger.critical(f"[ERROR] CRITICAL STARTUP ERROR: {e}")
         # Make sure logs are flushed
         import sys
         sys.stdout.flush()
@@ -63,14 +74,25 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Smart Saloon Crowd System (MongoDB)", lifespan=lifespan)
 
+from config import settings
+
 # 🌐 CORS Configuration
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[origin.strip() for origin in settings.ALLOWED_ORIGINS.split(",") if origin.strip()],
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 🛑 Global Exception Handler
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global Error: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error. Please contact support."}
+    )
 
 # 🚀 Router Registration
 app.include_router(camera_router)
